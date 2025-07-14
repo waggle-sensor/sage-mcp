@@ -1,0 +1,24 @@
+# MCP (Model Context Protocol) dependencies
+mcp>=1.0.0
+
+# Ollama Python client
+ollama>=0.3.0
+
+# FastMCP for simplified MCP server creation
+fastmcp>=0.9.0
+
+# Sage Data Client for querying sensor data
+sage-data-client
+
+# Data processing
+pandas>=2.0.0
+
+# HTTP client dependencies (may be included with mcp, but explicit for clarity)
+httpx>=0.25.0
+
+# Async support
+asyncio-mqtt  # if you plan to extend with MQTT support
+
+# Development dependencies (optional)
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
