@@ -4,7 +4,7 @@ A comprehensive guide to using the SAGE Model Context Protocol (MCP) server for 
 
 ## 🌟 What is SAGE MCP?
 
-The SAGE MCP is a powerful interface that connects Large Language Models (LLMs) and AI-powered IDEs to the SAGE (Software-Defined Sensor Network) ecosystem. It provides:
+The SAGE MCP is a powerful interface that connects Large Language Models (LLMs) and AI-powered IDEs to the SAGE ecosystem. It provides:
 
 - **Real-time sensor data access** from 100+ edge nodes worldwide
 - **Intelligent plugin discovery** and recommendation
