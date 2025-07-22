@@ -22,3 +22,7 @@ asyncio-mqtt  # if you plan to extend with MQTT support
 # Development dependencies (optional)
 pytest>=7.0.0
 pytest-asyncio>=0.21.0
+
+# TODO Find correct version constraints on these, if needed.
+requests
+pyyaml
