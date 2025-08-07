@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  sage-mcp:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "curl -f http://localhost:8000/mcp/ || curl -f http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    # Optional: mount local data directory
+    # volumes:
+    #   - ./data:/app/data
+    
+  # Alternative configuration for localhost only (more secure)
+  sage-mcp-local:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      - MCP_HOST=127.0.0.1
+      - MCP_PORT=8000
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    profiles:
+      - local
+    healthcheck:
+      test: ["CMD", "sh", "-c", "curl -f http://localhost:8000/mcp/ || curl -f http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s 
