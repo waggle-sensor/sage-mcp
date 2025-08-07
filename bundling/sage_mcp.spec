@@ -1,11 +1,16 @@
 # -*- mode: python ; coding: utf-8 -*-
 import sys
 import os
+import platform
 from pathlib import Path
 
 # Get the parent directory (where sage_mcp.py is located)
 import os
 current_dir = Path(os.getcwd()).parent
+
+# Platform-specific settings
+is_windows = platform.system().lower() == 'windows'
+executable_name = 'sage_mcp.exe' if is_windows else 'sage_mcp'
 
 block_cipher = None
 
@@ -129,7 +134,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='sage_mcp',
+    name=executable_name,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

@@ -19,12 +19,15 @@ A Model Context Protocol (MCP) server for the SAGE (Sensing at the Edge) platfor
 │   ├── plugin_query_service.py  # Plugin search and query
 │   ├── plugin_generator.py # Plugin generation utilities
 │   └── plugin_registry.py  # Plugin registry classes
-├── bundling/               # Executable building tools (PyInstaller)
-│   ├── build.sh           # Build script for creating executables
-│   ├── build_executable.py # PyInstaller build configuration
+├── bundling/               # Cross-platform executable building tools
+│   ├── build_executable.py # Main cross-platform build script
+│   ├── build_universal.py  # Universal platform-detecting build script
+│   ├── build.sh           # macOS build script wrapper
+│   ├── build_linux.sh     # Linux build script wrapper
+│   ├── build.bat          # Windows build script wrapper
 │   ├── sage_mcp.spec      # PyInstaller specification file
 │   ├── hook-*.py          # PyInstaller hooks for dependencies
-│   └── README.md          # Bundling documentation
+│   └── README.md          # Cross-platform bundling documentation
 ├── requirements.txt        # Python dependencies
 ├── Dockerfile             # Container deployment configuration
 ├── docker-compose.yml     # Docker orchestration
@@ -50,13 +53,21 @@ docker build -t sage-mcp-server .
 docker run -p 8000:8000 sage-mcp-server
 ```
 
-### Option 3: Standalone Executable
+### Option 3: Cross-Platform Standalone Executable
 ```bash
-# Build executable (includes all dependencies)
-./bundling/build.sh
+# Build executable (works on Windows, macOS, Linux)
+python build.py                    # Simple build from project root
+# OR
+python bundling/build_executable.py  # Direct cross-platform build
+
+# Platform-specific build scripts (optional)
+./bundling/build.sh        # macOS
+./bundling/build_linux.sh  # Linux  
+bundling\build.bat         # Windows
 
 # Run on any machine (no Python required)
-./bundling/dist/sage_mcp
+./bundling/dist/sage_mcp      # macOS/Linux
+bundling\dist\sage_mcp.exe   # Windows
 ```
 
 ## Features

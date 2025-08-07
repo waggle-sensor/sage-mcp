@@ -1,27 +1,34 @@
 #!/bin/bash
 # Build script for SAGE MCP executable on macOS
+# This script provides a convenient wrapper around the Python build script
 
 set -e  # Exit on any error
 
 echo "🚀 SAGE MCP Executable Builder for macOS"
 echo "========================================"
+echo "🍎 Detected macOS system"
 
 # Check if Python is available
 if ! command -v python3 &> /dev/null; then
     echo "❌ Python 3 is not installed or not in PATH"
+    echo "Please install Python 3.8+ from:"
+    echo "   - https://www.python.org/downloads/macos/"
+    echo "   - Or use Homebrew: brew install python"
+    echo "   - Or use pyenv: pyenv install 3.11.0"
     exit 1
 fi
 
 # Check if pip is available
 if ! command -v pip3 &> /dev/null; then
     echo "❌ pip3 is not installed or not in PATH"
+    echo "Please ensure pip3 is installed with Python"
     exit 1
 fi
 
-# Install PyInstaller if not already installed
-if ! pip3 show pyinstaller &> /dev/null; then
-    echo "📦 Installing PyInstaller..."
-    pip3 install pyinstaller
+# Check for Xcode Command Line Tools (needed for some Python packages)
+if ! command -v gcc &> /dev/null; then
+    echo "⚠️  Xcode Command Line Tools not found. Some Python packages might need compilation."
+    echo "Install with: xcode-select --install"
 fi
 
 # Run the Python build script

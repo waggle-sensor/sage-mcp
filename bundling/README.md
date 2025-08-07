@@ -1,38 +1,59 @@
-# SAGE MCP Executable Bundling
+# SAGE MCP Cross-Platform Executable Bundling
 
-This directory contains all files related to creating standalone executable versions of the SAGE MCP server using PyInstaller.
+This directory contains all files related to creating standalone executable versions of the SAGE MCP server using PyInstaller for **Windows**, **macOS**, and **Linux**.
 
 ## Files Overview
 
-- `build_executable.py` - Main Python script for building the executable
-- `build.sh` - Shell script wrapper for the build process (macOS/Linux)
-- `sage_mcp.spec` - PyInstaller specification file
+### Core Build Files
+- `build_executable.py` - **Main cross-platform Python build script** (recommended)
+- `build_universal.py` - Universal build script that detects platform and runs appropriate build
+- `sage_mcp.spec` - PyInstaller specification file with cross-platform support
+
+### Platform-Specific Scripts
+- `build.sh` - macOS build script wrapper 🍎
+- `build_linux.sh` - Linux build script wrapper 🐧  
+- `build.bat` - Windows build script wrapper 🪟
+
+### PyInstaller Hooks
 - `hook-fastmcp.py` - PyInstaller hook for fastmcp package
 - `hook-sage_data_client.py` - PyInstaller hook for sage_data_client package
 - `hooks/` - Directory containing PyInstaller hooks
+
+### Documentation
 - `BUILD_EXECUTABLE.md` - Detailed build instructions
 - `README-EXECUTABLE.md` - Usage instructions for the executable
 
-## Quick Build
+## Quick Build (Cross-Platform)
 
 ### Prerequisites
 - Python 3.8+
-- PyInstaller (`pip install pyinstaller`)
-- All project dependencies installed
+- All project dependencies installed (`pip install -r requirements.txt`)
+- PyInstaller will be automatically installed if needed
 
-### Build Command
+### Build Commands
 
-From the project root directory:
-
+**Option 1: Universal Python Script (Recommended)**
 ```bash
-# Using the shell script (recommended)
-./bundling/build.sh
-
-# Or directly with Python
+# From the project root directory - works on all platforms
 python bundling/build_executable.py
+
+# Or use the universal wrapper
+python bundling/build_universal.py
 ```
 
-The executable will be created at `bundling/dist/sage_mcp`.
+**Option 2: Platform-Specific Scripts**
+```bash
+# macOS/Linux
+./bundling/build.sh           # macOS
+./bundling/build_linux.sh     # Linux
+
+# Windows (Command Prompt or PowerShell)
+bundling\build.bat
+```
+
+### Output Files
+- **Windows**: `bundling/dist/sage_mcp.exe`
+- **macOS/Linux**: `bundling/dist/sage_mcp`
 
 ## Output Structure
 
