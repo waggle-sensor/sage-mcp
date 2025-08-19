@@ -7,6 +7,8 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
+import uuid
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
@@ -18,6 +20,9 @@ import yaml
 from pydantic import BaseModel, Field, validator
 import requests
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+from contextvars import ContextVar
+import threading
 
 # Import everything from the sage_mcp_server package
 from sage_mcp_server import (
@@ -43,28 +48,430 @@ SAGE_SENSORS_URL = "https://auth.sagecontinuum.org/sensors/"
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Context variable to store the current user's authentication token
+current_user_token: ContextVar[Optional[str]] = ContextVar('current_user_token', default=None)
+
+# Context variable to store the current session id
+current_session_id: ContextVar[Optional[str]] = ContextVar('current_session_id', default=None)
+
+# Thread-local storage for authentication token (fallback)
+_thread_local = threading.local()
+
+# Session-based user token storage (per-session, not global)
+# Key: session_id, Value: user_token
+_session_tokens: Dict[str, str] = {}
+_session_lock = threading.Lock()
+
 # Try to import required modules
 try:
-    from fastmcp import FastMCP
+    from fastmcp import FastMCP, Context
+    from fastmcp.server.middleware import Middleware, MiddlewareContext
+    from fastapi import HTTPException
+    from starlette.responses import Response
+    from starlette.requests import Request
+    import httpx
     import sage_data_client
 except ImportError as e:
     logger.error(f"Import error: {e}")
-    logger.error("Make sure you have installed: pip install mcp fastmcp sage-data-client")
+    logger.error("Make sure you have installed: pip install mcp fastmcp fastapi uvicorn starlette sage-data-client httpx")
     sys.exit(1)
 
 # ----------------------------------------
-# Initialize Services and MCP
+# Authentication Middleware
+# ----------------------------------------
+
+
+
+def extract_token_from_request(request_info: Dict[str, Any]) -> Optional[str]:
+    """Extract authentication token from request query parameters"""
+    try:
+        # Extract token from query parameters
+        if 'query' in request_info:
+            query_params = request_info['query']
+            if isinstance(query_params, str):
+                # Parse query string
+                parsed = parse_qs(query_params)
+                if 'token' in parsed:
+                    return parsed['token'][0]
+            elif isinstance(query_params, dict):
+                return query_params.get('token')
+        
+        # Also check for token in headers (alternative approach)
+        if 'headers' in request_info:
+            headers = request_info['headers']
+            auth_header = headers.get('Authorization', '')
+            if auth_header.startswith('Bearer '):
+                return auth_header[7:]  # Remove "Bearer " prefix
+        
+        return None
+    except Exception as e:
+        logger.warning(f"Error extracting token from request: {e}")
+        return None
+
+# ----------------------------------------
+# Initialize Services and MCP with Authentication
 # ----------------------------------------
 
 # Create global configuration
 sage_config = SageConfig()
 
-# Initialize services
+# Initialize services with authentication support
 data_service = SageDataService()
 job_service = SageJobService(sage_config)
 
+# Authentication Middleware
+class AuthenticationMiddleware(Middleware):
+    """Middleware to extract and store user authentication tokens"""
+    
+    async def on_request(self, context: MiddlewareContext, call_next):
+        """Extract session id and token from request and store in context for the duration of the request"""
+        token = None
+        session_id = None
+        
+        try:
+            # Extract from HTTP request if available
+            request = getattr(context, 'request', None)
+            if request is not None:
+                # Session ID from header set by clients (Cursor sets mcp-session-id)
+                session_id = request.headers.get('mcp-session-id') or request.headers.get('MCP-Session-Id')
+                
+                # Authorization header prioritization
+                # Support: Basic username:token, Bearer token, or custom X-SAGE-Token
+                auth_header = request.headers.get('Authorization')
+                if auth_header:
+                    if auth_header.startswith('Basic '):
+                        try:
+                            import base64
+                            decoded = base64.b64decode(auth_header[6:]).decode()
+                            # Expect username:token
+                            if ':' in decoded:
+                                token = decoded
+                        except Exception:
+                            pass
+                    elif auth_header.startswith('Bearer '):
+                        token = auth_header[7:]
+                # Custom header fallback
+                if not token:
+                    xtoken = request.headers.get('X-SAGE-Token')
+                    if xtoken:
+                        token = xtoken
+                
+                # Query param fallback
+                qp_token = request.query_params.get('token') if hasattr(request, 'query_params') else None
+                if qp_token:
+                    token = qp_token
+            
+        except Exception as e:
+            logger.debug(f"Could not extract token/session from request: {e}")
+        
+        # Set session id in context if found
+        if session_id:
+            current_session_id.set(session_id)
+        
+        # Set token in context if found
+        if token:
+            current_user_token.set(token)
+            logger.debug("Request authenticated with user token")
+            # Also store in session storage if we have a session id
+            sid = session_id or get_current_session_id()
+            if token:
+                set_session_token(sid, token)
+        
+        try:
+            result = await call_next(context)
+            return result
+        finally:
+            # Clean up context after request
+            try:
+                current_user_token.set(None)
+            except:
+                pass
+
+# Authentication helper functions
+def extract_token_from_context(ctx: Context) -> Optional[str]:
+    """Extract authentication token from FastMCP context"""
+    try:
+        # For now, we'll implement this as a placeholder
+        # The actual implementation depends on the FastMCP version and transport
+        # In practice, users can set tokens via environment variables or programmatically
+        logger.debug("Context-based token extraction not yet implemented")
+        return None
+        
+    except Exception as e:
+        logger.debug(f"Could not extract token from context: {e}")
+        return None
+
+def extract_token_from_environment() -> Optional[str]:
+    """Extract authentication token from environment variables or other sources"""
+    # Check environment variables for token
+    token = os.getenv('SAGE_USER_TOKEN') or os.getenv('SAGE_ACCESS_TOKEN')
+    if token:
+        logger.info("Using token from environment variable")
+        return token
+    
+    # Could add other token sources here (config files, etc.)
+    return None
+
+# Session management functions
+def get_current_session_id() -> str:
+    """
+    Get the current session ID. 
+    
+    Priority:
+    1. ContextVar set by middleware from 'mcp-session-id' header
+    2. Fallback to thread+process derived ID (best-effort only)
+    """
+    # Prefer explicit session ID from ContextVar (set by middleware)
+    try:
+        sid = current_session_id.get(None)
+        if sid:
+            return sid
+    except Exception:
+        pass
+    
+    # Fallback (best effort): thread+process
+    try:
+        import threading, os
+        thread_id = threading.current_thread().ident
+        process_id = os.getpid()
+        return f"session_{process_id}_{thread_id}"
+    except Exception as e:
+        logger.debug(f"Could not determine session ID: {e}")
+        return "default_session"
+
+def set_session_token(session_id: str, token: str) -> None:
+    """Set authentication token for a specific session"""
+    with _session_lock:
+        _session_tokens[session_id] = token
+        logger.info(f"Authentication token set for session: {session_id[:12]}...")
+
+def get_session_token(session_id: str) -> Optional[str]:
+    """Get authentication token for a specific session"""
+    with _session_lock:
+        return _session_tokens.get(session_id)
+
+def clear_session_token(session_id: str) -> None:
+    """Clear authentication token for a specific session"""
+    with _session_lock:
+        if session_id in _session_tokens:
+            del _session_tokens[session_id]
+            logger.info(f"Authentication token cleared for session: {session_id[:12]}...")
+
+def clear_all_sessions() -> None:
+    """Clear all session tokens (admin function)"""
+    with _session_lock:
+        count = len(_session_tokens)
+        _session_tokens.clear()
+        logger.info(f"Cleared authentication tokens for {count} sessions")
+
+def set_user_token(token: str) -> None:
+    """Set the user authentication token for the current session"""
+    session_id = get_current_session_id()
+    
+    try:
+        current_user_token.set(token)
+    except:
+        pass
+    
+    try:
+        # Fallback to thread-local storage
+        _thread_local.token = token
+    except:
+        pass
+    
+    # Store in session-specific storage to persist across MCP tool calls
+    set_session_token(session_id, token)
+
+def get_user_auth_token() -> Optional[str]:
+    """
+    Get the user's authentication token from the best available source.
+    
+    This is the main function to use throughout the codebase for getting auth tokens.
+    It abstracts away the details of where the token comes from, making it easy to
+    change the implementation later.
+    
+    Priority order:
+    1. Context variable (set by middleware or programmatically)
+    2. Thread-local storage (fallback)
+    3. Session-specific storage (persistent across MCP calls for this session)
+    4. Environment variables
+    
+    Returns:
+        Optional[str]: The authentication token if found, None otherwise
+    """
+    session_id = get_current_session_id()
+    
+    try:
+        # First try to get from context (if set by middleware)
+        token = current_user_token.get(None)
+        if token:
+            return token
+    except:
+        pass
+    
+    try:
+        # Try thread-local storage
+        token = getattr(_thread_local, 'token', None)
+        if token:
+            return token
+    except:
+        pass
+    
+    # Check session-specific storage (persists across MCP tool calls for this session)
+    session_token = get_session_token(session_id)
+    if session_token:
+        return session_token
+    
+    # Fallback to environment variables
+    return extract_token_from_environment()
+
+def get_request_token() -> Optional[str]:
+    """Deprecated: Use get_user_auth_token() instead"""
+    return get_user_auth_token()
+
 # Initialize MCP Server
 mcp = FastMCP("SageDataMCP")
+
+# Add authentication middleware
+mcp.add_middleware(AuthenticationMiddleware())
+
+# Helper function to get current user token
+def get_current_user_token() -> Optional[str]:
+    """Get the current user's authentication token from the best available source"""
+    return get_user_auth_token()
+
+# ----------------------------------------
+# AUTHENTICATION TOOLS
+# ----------------------------------------
+
+# @mcp.tool()  # Disabled: use Authorization header instead
+def set_authentication_token(username: str, token: str) -> str:
+    """
+    Set your SAGE authentication credentials for accessing protected data.
+    
+    Args:
+        username: Your SAGE portal username
+        token: Your SAGE access token from https://portal.sagecontinuum.org/account/access
+    """
+    try:
+        if not username or not token:
+            return "❌ Both username and token are required. Get your token from: https://portal.sagecontinuum.org/account/access"
+        
+        # Combine username and token
+        combined_token = f"{username}:{token}"
+        set_user_token(combined_token)
+        
+        return f"✅ Authentication credentials set successfully!\n" \
+               f"Username: {username}\n" \
+               f"Token: {token[:8]}...{token[-4:] if len(token) > 12 else token}\n" \
+               f"Ready for protected data access!"
+    except Exception as e:
+        logger.error(f"Error setting authentication credentials: {e}")
+        return f"❌ Error setting authentication credentials: {str(e)}"
+
+@mcp.tool()
+def get_authentication_status() -> str:
+    """Check if an authentication token is currently set for this session"""
+    session_id = get_current_session_id()
+    token = get_current_user_token()
+    
+    if token:
+        if ':' in token:
+            # Token has username:token format
+            username, access_token = token.split(':', 1)
+            masked_token = access_token[:8] + "..." + access_token[-4:] if len(access_token) > 12 else "***"
+            return f"✅ Authentication credentials are set for this session:\n" \
+                   f"Session: {session_id[:12]}...\n" \
+                   f"Username: {username}\n" \
+                   f"Token: {masked_token}\n" \
+                   f"Ready for protected data access!"
+        else:
+            # Token without username
+            masked_token = token[:8] + "..." if len(token) > 8 else "***"
+            return f"⚠️ Authentication token is set for this session (starts with: {masked_token})\n" \
+                   f"Session: {session_id[:12]}...\n" \
+                   f"⚠️ Warning: Token format is 'token-only'. For protected data access, use username:token format.\n" \
+                   f"Use set_authentication_token(username, token) with your SAGE username."
+    else:
+        return f"❌ No authentication token is set for this session.\n" \
+               f"Session: {session_id[:12]}...\n" \
+               f"Use set_authentication_token(username, token) to set credentials.\n" \
+               f"Get your token from: https://portal.sagecontinuum.org/account/access"
+
+@mcp.tool()
+def clear_authentication_token() -> str:
+    """Clear the currently set authentication token for this session"""
+    session_id = get_current_session_id()
+    
+    try:
+        current_user_token.set(None)
+    except:
+        pass
+    
+    try:
+        if hasattr(_thread_local, 'token'):
+            delattr(_thread_local, 'token')
+    except:
+        pass
+    
+    # Clear session-specific token
+    clear_session_token(session_id)
+    
+    return "✅ Authentication credentials cleared successfully for this session."
+
+@mcp.tool()
+def list_active_sessions() -> str:
+    """List all active sessions with authentication (admin/debug tool)"""
+    with _session_lock:
+        if not _session_tokens:
+            return "📊 No active authenticated sessions"
+        
+        session_info = []
+        session_info.append("📊 **Active Authenticated Sessions:**")
+        session_info.append("")
+        
+        for session_id, token in _session_tokens.items():
+            if ':' in token:
+                username = token.split(':', 1)[0]
+                masked_token = token.split(':', 1)[1][:8] + "..."
+                session_info.append(f"🔐 Session: {session_id[:12]}...")
+                session_info.append(f"   Username: {username}")
+                session_info.append(f"   Token: {masked_token}")
+            else:
+                masked_token = token[:8] + "..." if len(token) > 8 else "***"
+                session_info.append(f"⚠️ Session: {session_id[:12]}...")
+                session_info.append(f"   Token: {masked_token} (missing username)")
+            session_info.append("")
+        
+        session_info.append(f"Total sessions: {len(_session_tokens)}")
+        return "\n".join(session_info)
+
+# @mcp.tool()  # Disabled: use Authorization header instead
+def set_authentication_token_legacy(token: str) -> str:
+    """
+    Set authentication token in legacy format (for backward compatibility).
+    
+    DEPRECATED: Use set_authentication_token(username, token) instead.
+    
+    Args:
+        token: Either 'username:token' format or just the token
+    """
+    try:
+        set_user_token(token)
+        
+        if ':' in token:
+            username = token.split(':', 1)[0]
+            return f"✅ Authentication token set successfully!\n" \
+                   f"Username: {username}\n" \
+                   f"Format: username:token ✓\n" \
+                   f"Ready for protected data access!"
+        else:
+            return f"⚠️ Authentication token set, but missing username!\n" \
+                   f"Token: {token[:8]}...{token[-4:] if len(token) > 12 else token}\n" \
+                   f"⚠️ For protected data access, use set_authentication_token(username, token) instead."
+    except Exception as e:
+        logger.error(f"Error setting authentication token: {e}")
+        return f"❌ Error setting authentication token: {str(e)}"
 
 # ----------------------------------------
 # 1. RESOURCES
@@ -75,7 +482,8 @@ def query_plugin_data(plugin: str) -> str:
     """Query Sage data for a specific plugin (last 30 min)"""
     try:
         logger.info(f"Querying plugin data for: {plugin}")
-        df = data_service.query_plugin_data(plugin)
+        user_token = get_current_user_token()
+        df = data_service.query_plugin_data(plugin, user_token=user_token)
         
         result = df.to_csv(index=False)
         logger.info(f"Plugin {plugin} query returned {len(result)} characters")
@@ -96,7 +504,8 @@ def temperature_stats() -> str:
     try:
         logger.info("Getting temperature stats...")
         start, end = parse_time_range("-1h")
-        df = data_service.query_data(start, end, {"name": "env.temperature"})
+        user_token = get_current_user_token()
+        df = data_service.query_data(start, end, {"name": "env.temperature"}, user_token=user_token)
         
         if df.empty:
             return "No temperature data found in the last hour"
@@ -129,7 +538,8 @@ def get_node_all_data(node_id: str, time_range: str = "-30m") -> str:
         validated_time = TimeRange(value=time_range)
         logger.info(f"Getting all data for node: {node_str}")
         # Query for all data from this node or all nodes
-        df = data_service.query_node_data(node_str, validated_time)
+        user_token = get_current_user_token()
+        df = data_service.query_node_data(node_str, validated_time, user_token=user_token)
         if df.empty:
             return f"No data found for node {node_str} in the last {validated_time}"
         # Group by measurement type and sensor
@@ -162,12 +572,14 @@ def get_node_iio_data(node_id: str, time_range: str = "-30m") -> str:
         
         # Query for IIO plugin data
         start, end = parse_time_range(validated_time)
+        user_token = get_current_user_token()
         df = data_service.query_data(
             start, end,
             {
                 "plugin": ".*plugin-iio.*",
                 "vsn": str(validated_node)
-            }
+            },
+            user_token=user_token
         )
         
         if df.empty:
@@ -213,7 +625,8 @@ def get_environmental_summary(node_id: str = "", time_range: str = "-1h") -> str
         logger.info(f"Getting environmental summary for node: {validated_node or 'all'}")
         
         # Query environmental data
-        df = data_service.query_environmental_data(validated_node, validated_time)
+        user_token = get_current_user_token()
+        df = data_service.query_environmental_data(validated_node, validated_time, user_token=user_token)
         
         if df.empty:
             node_text = f"node {validated_node}" if validated_node else "any nodes"
@@ -249,7 +662,8 @@ def list_available_nodes(time_range: str = "-1h") -> str:
         data_service = SageDataService()
         
         # Query environmental data
-        df = data_service.query_environmental_data(time_range=time_range)
+        user_token = get_current_user_token()
+        df = data_service.query_environmental_data(time_range=time_range, user_token=user_token)
         if df.empty:
             return "No active nodes found in the specified time range."
 
@@ -352,14 +766,15 @@ def search_measurements(
         
         # Query for matching measurements
         start, end = parse_time_range(validated_time)
-        df = data_service.query_data(start, end, filter_params)
+        user_token = get_current_user_token()
+        df = data_service.query_data(start, end, filter_params, user_token=user_token)
         
         if df.empty:
             # Try name filter if plugin filter returns no results
             name_filter = filter_params.copy()
             name_filter["name"] = name_filter.pop("plugin")
             logger.info(f"Trying name filter: {name_filter}")
-            df = data_service.query_data(start, end, name_filter)
+            df = data_service.query_data(start, end, name_filter, user_token=user_token)
             
         if df.empty:
             node_text = f" for node {validated_node}" if validated_node else ""
@@ -442,13 +857,15 @@ def get_node_temperature(node_id: str, sensor_type: str = "bme680") -> str:
 
         # Query for temperature data, filtered by sensor type
         start, end = parse_time_range("-1h")
+        user_token = get_current_user_token()
         df = data_service.query_data(
             start, end,
             {
                 "name": DataType.TEMPERATURE.value,
                 "vsn": str(validated_node),
                 "sensor": sensor_type
-            }
+            },
+            user_token=user_token
         )
 
         if df.empty:
@@ -490,7 +907,8 @@ def get_temperature_summary(time_range: str = "-1h", sensor_type: str = "bme680"
         validated_time = TimeRange(value=time_range)
 
         start, end = parse_time_range(validated_time)
-        df = data_service.query_data(start, end, {"name": DataType.TEMPERATURE.value, "sensor": sensor_type})
+        user_token = get_current_user_token()
+        df = data_service.query_data(start, end, {"name": DataType.TEMPERATURE.value, "sensor": sensor_type}, user_token=user_token)
 
         if df.empty:
             sensor_label = "environment (bme680)" if sensor_type == "bme680" else "internal/hardware (bme280)"
@@ -836,7 +1254,8 @@ def query_job_data(
         
         # Query the data
         start, end = parse_time_range(validated_time)
-        df = data_service.query_data(start, end, filter_params)
+        user_token = get_current_user_token()
+        df = data_service.query_data(start, end, filter_params, user_token=user_token)
         
         if df.empty:
             # If no data found with smart matching, try a broader search
@@ -853,7 +1272,7 @@ def query_job_data(
             if broader_patterns:
                 filter_params["plugin"] = '|'.join(broader_patterns)
                 logger.info(f"Trying broader search with patterns: {filter_params['plugin']}")
-                df = data_service.query_data(start, end, filter_params)
+                df = data_service.query_data(start, end, filter_params, user_token=user_token)
             
             if df.empty:
                 return f"No data found for job '{job_name}' in the last {validated_time}. The job may still be starting up or not producing data yet.\n\n💡 Tip: Try using search_measurements() to see what plugins are actually running on this node."
@@ -1144,7 +1563,8 @@ def get_measurement_stat_by_location(
                 }
                 logger.info(f"Querying SAGE data with plugin regex filter: {filter_params}")
                 start, end = parse_time_range(validated_time)
-                df = data_service.query_data(start, end, filter_params)
+                user_token = get_current_user_token()
+                df = data_service.query_data(start, end, filter_params, user_token=user_token)
                 logger.info(f"[Rain plugin] Raw df shape: {df.shape}, columns: {list(df.columns) if not df.empty else 'EMPTY'}")
                 # Now filter for the measurement_type in the DataFrame
                 if not df.empty:
@@ -1161,7 +1581,7 @@ def get_measurement_stat_by_location(
                     }
                     logger.info(f"[Rain fallback] Querying SAGE data with fallback filter: {fallback_params}")
                     start, end = parse_time_range(validated_time)
-                    df_fallback = data_service.query_data(start, end, fallback_params)
+                    df_fallback = data_service.query_data(start, end, fallback_params, user_token=user_token)
                     logger.info(f"[Rain fallback] Fallback df shape: {df_fallback.shape}, columns: {list(df_fallback.columns) if not df_fallback.empty else 'EMPTY'}")
                     if not df_fallback.empty:
                         df_fallback['node_id'] = node_id
@@ -1176,7 +1596,8 @@ def get_measurement_stat_by_location(
                     filter_params["sensor"] = sensor_type
                 logger.info(f"Querying SAGE data with filter: {filter_params}")
                 start, end = parse_time_range(validated_time)
-                df = data_service.query_data(start, end, filter_params)
+                user_token = get_current_user_token()
+                df = data_service.query_data(start, end, filter_params, user_token=user_token)
                 if not df.empty:
                     df['node_id'] = node_id
                     all_data.append(df)
@@ -1320,10 +1741,12 @@ def get_plugin_data(plugin_id: str, nodes: str = "", time_range: str = "-1h") ->
             return f"Plugin not found: {plugin_id}"
         
         # Query data
+        user_token = get_current_user_token()
         df = plugin_query_service.query_plugin_data(
             plugin_id=plugin_id,
             nodes=node_list,
-            time_range=time_range
+            time_range=time_range,
+            user_token=user_token
         )
         
         # Format results
@@ -1360,7 +1783,8 @@ def get_cloud_images(time_range: str = "-1h", node_id: str = "") -> str:
         
         # Query the data
         start, end = parse_time_range(validated_time)
-        df = data_service.query_data(start, end, filter_params)
+        user_token = get_current_user_token()
+        df = data_service.query_data(start, end, filter_params, user_token=user_token)
         
         if df.empty:
             node_text = f" for node {validated_node}" if validated_node else ""
@@ -1459,7 +1883,8 @@ def get_image_data(time_range: str = "-1h", node_id: str = "", plugin_pattern: s
         
         # Query image data
         start, end = parse_time_range(validated_time)
-        df = data_service.query_data(start, end, filter_params)
+        user_token = get_current_user_token()
+        df = data_service.query_data(start, end, filter_params, user_token=user_token)
         
         if df.empty:
             node_text = f" for node {validated_node}" if validated_node else ""
@@ -1530,7 +1955,8 @@ def query_plugin_data_nl(query: str) -> str:
     - "What's the latest rain data from Chicago nodes?"
     """
     try:
-        return plugin_query_service.query_by_natural_language(query)
+        user_token = get_current_user_token()
+        return plugin_query_service.query_by_natural_language(query, user_token=user_token)
     except Exception as e:
         logger.error(f"Error processing natural language query: {e}")
         return f"Error processing your query: {str(e)}"
@@ -1710,6 +2136,228 @@ The sudo commands will work without a password on SAGE nodes."""
     except Exception as e:
         logger.error(f"Error creating plugin: {e}")
         return f"❌ Error creating plugin: {str(e)}"
+
+# ----------------------------------------
+# 6. IMAGE PROXY ENDPOINTS
+# ----------------------------------------
+
+@mcp.custom_route("/proxy/image", methods=["GET"])
+async def proxy_image(request):
+    # Bind session id from header (if present) to ContextVar for downstream calls
+    try:
+        sid = request.headers.get('mcp-session-id') or request.headers.get('MCP-Session-Id')
+        if sid:
+            current_session_id.set(sid)
+    except Exception:
+        pass
+    
+    # Extract Basic/Bearer from headers for proxy auth
+    incoming_auth = request.headers.get('Authorization')
+    """
+    Proxy endpoint to fetch SAGE images with authentication.
+    Automatically follows redirects (equivalent to curl -L).
+    
+    Authentication priority (in order):
+    1. SAGE_USER and SAGE_PASS environment variables
+    2. token parameter in 'username:password' format
+    3. token parameter as Bearer token (for simple access tokens)
+    4. Global authentication token
+    
+    Query Parameters:
+        url: The SAGE storage URL to fetch
+        token: Authentication token (optional, can use global token)
+               - Format 'username:password' for Basic Auth
+               - Or simple token for Bearer Auth
+    
+    Returns:
+        The image data with appropriate content type
+    """
+    try:
+        # Extract parameters from request
+        url = request.query_params.get("url")
+        token = request.query_params.get("token")
+        
+        if not url:
+            raise HTTPException(status_code=400, detail="Missing required parameter: url")
+        
+        # Get authentication token
+        auth_token = token or get_user_auth_token()
+        
+        # Validate URL is from SAGE storage
+        if not url.startswith("https://storage.sagecontinuum.org/"):
+            raise HTTPException(status_code=400, detail="Invalid URL: Only SAGE storage URLs are allowed")
+        
+        # Prepare authentication headers
+        headers = {}
+        
+        # 1) Prefer incoming Authorization header from client
+        if incoming_auth:
+            headers["Authorization"] = incoming_auth
+        else:
+            # 2) Try environment variables
+            sage_user = os.getenv("SAGE_USER")
+            sage_pass = os.getenv("SAGE_PASS")
+            
+            if sage_user and sage_pass:
+                import base64
+                credentials = base64.b64encode(f"{sage_user}:{sage_pass}".encode()).decode()
+                headers["Authorization"] = f"Basic {credentials}"
+                logger.info("Using SAGE credentials from environment variables")
+            elif auth_token:
+                if ':' in auth_token:
+                    # Token in username:password format
+                    username, password = auth_token.split(':', 1)
+                    import base64
+                    credentials = base64.b64encode(f"{username}:{password}".encode()).decode()
+                    headers["Authorization"] = f"Basic {credentials}"
+                    logger.info("Using credentials from token parameter")
+                else:
+                    # Single token - try as password with empty username or check if it's a simple access token
+                    logger.warning("Token provided without username. Trying as access token, but protected images may not be accessible.")
+                    headers["Authorization"] = f"Bearer {auth_token}"
+        
+        # Fetch the image (follow redirects like curl -L)
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            response = await client.get(url, headers=headers, timeout=30.0)
+            response.raise_for_status()
+            
+            # Get content type from response
+            content_type = response.headers.get("content-type", "application/octet-stream")
+            
+            # Return the image data
+            return Response(
+                content=response.content,
+                media_type=content_type,
+                headers={
+                    "Cache-Control": "public, max-age=3600",  # Cache for 1 hour
+                    "X-Sage-Proxy": "true"
+                }
+            )
+            
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 401:
+            raise HTTPException(status_code=401, detail="Authentication required or invalid credentials")
+        elif e.response.status_code == 403:
+            raise HTTPException(status_code=403, detail="Access forbidden - check permissions")
+        elif e.response.status_code == 404:
+            raise HTTPException(status_code=404, detail="Image not found")
+        else:
+            raise HTTPException(status_code=e.response.status_code, detail=f"Error fetching image: {e.response.text}")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=500, detail=f"Network error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error proxying image: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@mcp.tool()
+def get_image_proxy_url(sage_url: str) -> str:
+    """
+    Get a proxy URL for a SAGE image that can be accessed by clients.
+    
+    Args:
+        sage_url: The original SAGE storage URL
+        
+    Returns:
+        A proxy URL that clients can use to access the image
+    """
+    try:
+        import urllib.parse
+        
+        # Validate URL
+        if not sage_url.startswith("https://storage.sagecontinuum.org/"):
+            return f"Error: Invalid URL. Only SAGE storage URLs are supported."
+        
+        # Create proxy URL
+        encoded_url = urllib.parse.quote(sage_url, safe='')
+        proxy_url = f"http://localhost:8000/proxy/image?url={encoded_url}"
+        
+        # Add token if available
+        user_token = get_user_auth_token()
+        if user_token:
+            encoded_token = urllib.parse.quote(user_token, safe='')
+            proxy_url += f"&token={encoded_token}"
+        
+        response_parts = [
+            f"🖼️ **SAGE Image Proxy URL Generated**",
+            f"",
+            f"**Proxy URL:** {proxy_url}",
+            f"",
+            f"📋 **How to Use This URL:**",
+            f"",
+            f"**Method 1: Direct Browser Access**",
+            f"- Simply paste the URL above into your browser",
+            f"- The proxy will handle authentication automatically",
+            f"",
+                         f"**Method 2: Command Line Tools**",
+             f"For protected images, you can also download directly from SAGE storage using:",
+             f"",
+             f"```bash",
+             f"# Using curl (recommended) - Note the -L flag to follow redirects",
+             f"curl -L -u <your-sage-username>:<your-access-token> \"{sage_url}\" -o image.jpg",
+             f"",
+             f"# Using wget",
+             f"wget --user=<your-sage-username> --password=<your-access-token> \"{sage_url}\"",
+             f"```",
+             f"",
+             f"**Working Example:**",
+             f"```bash",
+             f"# This format has been tested and confirmed working:",
+             f"curl -L -u plebbyd:4d9473cb2a21cb7716e97e5fdafdbcbf4faea051 \\",
+             f"  \"{sage_url}\" \\",
+             f"  -o downloaded_image.jpg",
+             f"```",
+            f"",
+                         f"**Method 3: Python requests**",
+             f"```python",
+             f"import requests",
+             f"from requests.auth import HTTPBasicAuth",
+             f"",
+             f"# Note: allow_redirects=True is default, but shown for clarity",
+             f"response = requests.get('{sage_url}', ",
+             f"                      auth=HTTPBasicAuth('your-username', 'your-token'),",
+             f"                      allow_redirects=True)",
+             f"",
+             f"if response.status_code == 200:",
+             f"    with open('image.jpg', 'wb') as f:",
+             f"        f.write(response.content)",
+             f"    print('Image downloaded successfully!')",
+             f"else:",
+             f"    print(f'Failed to download: {{response.status_code}} - {{response.text}}')",
+             f"```",
+            f"",
+            f"🔐 **Authentication Notes:**"
+        ]
+        
+        if user_token:
+            if ':' in user_token:
+                username = user_token.split(':', 1)[0]
+                response_parts.extend([
+                    f"- ✅ You have authentication configured (username: {username})",
+                    f"- The proxy URL includes your credentials automatically",
+                    f"- For direct downloads, use your SAGE username and access token",
+                    f"- ⚠️ Important: Use `-L` flag with curl to follow redirects"
+                ])
+            else:
+                response_parts.extend([
+                    f"- ⚠️ You have a token set, but missing username",
+                    f"- Use set_authentication_token(username, token) for full access",
+                    f"- Some protected images may not be accessible",
+                    f"- ⚠️ Important: Use `-L` flag with curl to follow redirects"
+                ])
+        else:
+            response_parts.extend([
+                f"- ❌ No authentication configured",
+                f"- Use set_authentication_token(username, token) to set credentials",
+                f"- Only public images will be accessible",
+                f"- Get your credentials from: https://portal.sagecontinuum.org/account/access",
+                f"- ⚠️ Important: Use `-L` flag with curl to follow redirects"
+            ])
+        
+        return "\n".join(response_parts)
+        
+    except Exception as e:
+        logger.error(f"Error creating proxy URL: {e}")
+        return f"Error creating proxy URL: {str(e)}"
 
 # ----------------------------------------
 # 7. PROMPTS

@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timedelta
 import pandas as pd
 import re
+import os
 
 from .plugin_metadata import plugin_registry, PluginMetadata
 import sage_data_client
@@ -45,19 +46,42 @@ class PluginQueryService:
         query = query.lower()
         params = {}
 
+        # Initialize categories list
+        categories = []
+
         # Handle PTZ-YOLO specific queries
         if any(term in query for term in ["ptz", "pan", "tilt", "zoom"]):
             if "yolo" in query or "detect" in query or "recognition" in query:
                 params["plugin_pattern"] = ".*ptzapp-yolo.*"
+                categories.append("camera")
             else:
                 params["plugin_pattern"] = ".*ptz.*"
+                categories.append("camera")
 
         # Handle image and camera related queries
         elif any(term in query for term in ["image", "camera", "photo", "picture"]):
             if "yolo" in query or "detect" in query or "recognition" in query:
                 params["plugin_pattern"] = ".*yolo.*"
+                categories.append("camera")
             else:
                 params["plugin_pattern"] = ".*imagesampler.*|.*camera.*"
+                categories.append("camera")
+
+        # Handle environmental queries
+        elif any(term in query for term in ["temperature", "humidity", "pressure", "weather", "environmental"]):
+            categories.append("environmental")
+
+        # Handle audio queries
+        elif any(term in query for term in ["audio", "sound", "microphone", "recording"]):
+            categories.append("audio")
+
+        # Handle cloud/rain queries
+        elif any(term in query for term in ["cloud", "rain", "precipitation", "sky"]):
+            categories.append("rain")
+
+        # Add categories to params if any were found
+        if categories:
+            params["categories"] = categories
 
         # Extract time range if specified
         time_matches = re.findall(r"(\d+)\s*(hour|hr|minute|min)s?(?:\s+ago)?", query)
@@ -67,6 +91,13 @@ class PluginQueryService:
                 params["time_range"] = f"-{amount}h"
             elif unit.startswith("min"):
                 params["time_range"] = f"-{amount}m"
+
+        # Set default values if not specified
+        if "time_range" not in params:
+            params["time_range"] = "-1h"
+        
+        # Set nodes to None (will query all nodes)
+        params["nodes"] = None
 
         return params
     
@@ -78,10 +109,11 @@ class PluginQueryService:
         # Search for matching plugins
         matching_plugins = []
         
-        # Search by categories
-        for category in params["categories"]:
-            plugins = self.registry.get_plugins_by_type(category)
-            matching_plugins.extend(plugins)
+        # Search by categories if specified
+        if "categories" in params:
+            for category in params["categories"]:
+                plugins = self.registry.get_plugins_by_type(category)
+                matching_plugins.extend(plugins)
         
         # Search by direct plugin name/description
         direct_matches = self.registry.search_plugins(task_description)
@@ -104,6 +136,7 @@ class PluginQueryService:
         time_range: str = "-1h",
         start: str = None,
         end: str = None,
+        user_token: Optional[str] = None,
         **kwargs
     ) -> pd.DataFrame:
         """Query data produced by a specific plugin"""
@@ -146,6 +179,19 @@ class PluginQueryService:
             query_args = {"start": start, "filter": filter_params}
             if end:
                 query_args["end"] = end
+            # Note: sage_data_client.query() does not accept authentication parameters
+            # Authentication for protected data must be configured at the system level
+            if user_token:
+                if ':' in user_token:
+                    username, _ = user_token.split(':', 1)
+                    logger.info(f"User token provided (username: {username}) - attempting plugin query")
+                    logger.warning("sage_data_client authentication not yet implemented - may only return public data")
+                else:
+                    logger.warning(f"Token provided without username. For protected data access, use 'username:token' format")
+                    logger.info(f"Querying plugin {plugin.name} with simple token - may only return public data")
+            else:
+                logger.info(f"Querying plugin {plugin.name} without authentication")
+            
             df = sage_data_client.query(**query_args)
             if df.empty:
                 logger.warning(f"No data found for plugin {plugin.name}")
@@ -175,10 +221,19 @@ class PluginQueryService:
         
         # Add value statistics if available
         if 'value' in df.columns:
-            result.append("\nValue Statistics:")
-            result.append(f"  Minimum: {df['value'].min():.2f}")
-            result.append(f"  Maximum: {df['value'].max():.2f}")
-            result.append(f"  Average: {df['value'].mean():.2f}")
+            try:
+                # Try to convert to numeric and calculate statistics
+                numeric_values = pd.to_numeric(df['value'], errors='coerce')
+                if not numeric_values.isna().all():
+                    result.append("\nValue Statistics:")
+                    result.append(f"  Minimum: {numeric_values.min():.2f}")
+                    result.append(f"  Maximum: {numeric_values.max():.2f}")
+                    result.append(f"  Average: {numeric_values.mean():.2f}")
+                else:
+                    result.append(f"\nValue types: {df['value'].dtype}")
+            except Exception as e:
+                logger.warning(f"Could not calculate value statistics: {e}")
+                result.append(f"\nValue column present ({len(df)} records)")
         
         # Add plugin description if available
         if plugin.description:
@@ -190,7 +245,7 @@ class PluginQueryService:
         
         return "\n".join(result)
     
-    def query_by_natural_language(self, query: str) -> str:
+    def query_by_natural_language(self, query: str, user_token: Optional[str] = None) -> str:
         """Handle a natural language query about plugin data"""
         try:
             # Parse the query
@@ -208,7 +263,8 @@ class PluginQueryService:
                 df = self.query_plugin_data(
                     plugin_id=plugin.id,
                     nodes=params["nodes"],
-                    time_range=params["time_range"]
+                    time_range=params["time_range"],
+                    user_token=user_token
                 )
                 
                 # Format and add results
