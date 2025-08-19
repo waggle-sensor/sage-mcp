@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 
 class SageConfig(BaseModel):
     """Configuration settings for SAGE interactions"""
-    token: str = Field(default="4d9473cb2a21cb7716e97e5fdafdbcbf4faea051", 
+    token: str = Field(default="your-access-token-here", 
                        description="SAGE API token for authentication")
     server: str = Field(default="https://es.sagecontinuum.org", 
                        description="SAGE server URL")

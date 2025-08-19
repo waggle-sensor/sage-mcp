@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 class SAGEDocsHelper:
     """Helper class for searching and answering questions from SAGE documentation"""
     
-    def __init__(self, docs_file_path: str = "llms.md"):
+    def __init__(self, docs_file_path: str = "docs/llms.md"):
         self.docs_file_path = docs_file_path
         self.docs_content = ""
         self.sections = {}

@@ -99,7 +99,7 @@ class JobTemplates:
     ) -> SageJob:
         plugin = PluginSpec(
             name=job_name,
-            image="plebbyd/ptzapp-yolo:0.1.12",
+            image="example-user/ptzapp-yolo:0.1.12",
             args=PluginArguments.from_string(
                 f"iterations={iterations},"
                 f"objects={objects},"

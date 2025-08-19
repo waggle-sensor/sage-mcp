@@ -54,13 +54,7 @@ current_user_token: ContextVar[Optional[str]] = ContextVar('current_user_token',
 # Context variable to store the current session id
 current_session_id: ContextVar[Optional[str]] = ContextVar('current_session_id', default=None)
 
-# Thread-local storage for authentication token (fallback)
-_thread_local = threading.local()
-
-# Session-based user token storage (per-session, not global)
-# Key: session_id, Value: user_token
-_session_tokens: Dict[str, str] = {}
-_session_lock = threading.Lock()
+# No additional token storage - only use headers and query parameters
 
 # Try to import required modules
 try:
@@ -124,7 +118,7 @@ class AuthenticationMiddleware(Middleware):
     """Middleware to extract and store user authentication tokens"""
     
     async def on_request(self, context: MiddlewareContext, call_next):
-        """Extract session id and token from request and store in context for the duration of the request"""
+        """Extract authentication token from request headers and query parameters"""
         token = None
         session_id = None
         
@@ -132,6 +126,11 @@ class AuthenticationMiddleware(Middleware):
             # Extract from HTTP request if available
             request = getattr(context, 'request', None)
             if request is not None:
+                # Debug: Log received headers (excluding sensitive data)
+                auth_headers = {k: v for k, v in request.headers.items() if 'auth' in k.lower() or 'token' in k.lower()}
+                if auth_headers:
+                    logger.debug(f"Received auth-related headers: {list(auth_headers.keys())}")
+                
                 # Session ID from header set by clients (Cursor sets mcp-session-id)
                 session_id = request.headers.get('mcp-session-id') or request.headers.get('MCP-Session-Id')
                 
@@ -158,11 +157,11 @@ class AuthenticationMiddleware(Middleware):
                 
                 # Query param fallback
                 qp_token = request.query_params.get('token') if hasattr(request, 'query_params') else None
-                if qp_token:
+                if not token and qp_token:
                     token = qp_token
             
         except Exception as e:
-            logger.debug(f"Could not extract token/session from request: {e}")
+            logger.debug(f"Could not extract token from request: {e}")
         
         # Set session id in context if found
         if session_id:
@@ -171,11 +170,9 @@ class AuthenticationMiddleware(Middleware):
         # Set token in context if found
         if token:
             current_user_token.set(token)
-            logger.debug("Request authenticated with user token")
-            # Also store in session storage if we have a session id
-            sid = session_id or get_current_session_id()
-            if token:
-                set_session_token(sid, token)
+            logger.info(f"Request authenticated with user token: {token[:10]}...{token[-4:] if len(token) > 14 else ''}")
+        else:
+            logger.debug("No authentication token found in request")
         
         try:
             result = await call_next(context)
@@ -187,147 +184,31 @@ class AuthenticationMiddleware(Middleware):
             except:
                 pass
 
-# Authentication helper functions
-def extract_token_from_context(ctx: Context) -> Optional[str]:
-    """Extract authentication token from FastMCP context"""
-    try:
-        # For now, we'll implement this as a placeholder
-        # The actual implementation depends on the FastMCP version and transport
-        # In practice, users can set tokens via environment variables or programmatically
-        logger.debug("Context-based token extraction not yet implemented")
-        return None
-        
-    except Exception as e:
-        logger.debug(f"Could not extract token from context: {e}")
-        return None
 
-def extract_token_from_environment() -> Optional[str]:
-    """Extract authentication token from environment variables or other sources"""
-    # Check environment variables for token
-    token = os.getenv('SAGE_USER_TOKEN') or os.getenv('SAGE_ACCESS_TOKEN')
-    if token:
-        logger.info("Using token from environment variable")
-        return token
-    
-    # Could add other token sources here (config files, etc.)
-    return None
 
-# Session management functions
-def get_current_session_id() -> str:
-    """
-    Get the current session ID. 
-    
-    Priority:
-    1. ContextVar set by middleware from 'mcp-session-id' header
-    2. Fallback to thread+process derived ID (best-effort only)
-    """
-    # Prefer explicit session ID from ContextVar (set by middleware)
-    try:
-        sid = current_session_id.get(None)
-        if sid:
-            return sid
-    except Exception:
-        pass
-    
-    # Fallback (best effort): thread+process
-    try:
-        import threading, os
-        thread_id = threading.current_thread().ident
-        process_id = os.getpid()
-        return f"session_{process_id}_{thread_id}"
-    except Exception as e:
-        logger.debug(f"Could not determine session ID: {e}")
-        return "default_session"
 
-def set_session_token(session_id: str, token: str) -> None:
-    """Set authentication token for a specific session"""
-    with _session_lock:
-        _session_tokens[session_id] = token
-        logger.info(f"Authentication token set for session: {session_id[:12]}...")
 
-def get_session_token(session_id: str) -> Optional[str]:
-    """Get authentication token for a specific session"""
-    with _session_lock:
-        return _session_tokens.get(session_id)
 
-def clear_session_token(session_id: str) -> None:
-    """Clear authentication token for a specific session"""
-    with _session_lock:
-        if session_id in _session_tokens:
-            del _session_tokens[session_id]
-            logger.info(f"Authentication token cleared for session: {session_id[:12]}...")
 
-def clear_all_sessions() -> None:
-    """Clear all session tokens (admin function)"""
-    with _session_lock:
-        count = len(_session_tokens)
-        _session_tokens.clear()
-        logger.info(f"Cleared authentication tokens for {count} sessions")
 
-def set_user_token(token: str) -> None:
-    """Set the user authentication token for the current session"""
-    session_id = get_current_session_id()
-    
-    try:
-        current_user_token.set(token)
-    except:
-        pass
-    
-    try:
-        # Fallback to thread-local storage
-        _thread_local.token = token
-    except:
-        pass
-    
-    # Store in session-specific storage to persist across MCP tool calls
-    set_session_token(session_id, token)
 
 def get_user_auth_token() -> Optional[str]:
     """
-    Get the user's authentication token from the best available source.
+    Get the user's authentication token from request context.
     
-    This is the main function to use throughout the codebase for getting auth tokens.
-    It abstracts away the details of where the token comes from, making it easy to
-    change the implementation later.
-    
-    Priority order:
-    1. Context variable (set by middleware or programmatically)
-    2. Thread-local storage (fallback)
-    3. Session-specific storage (persistent across MCP calls for this session)
-    4. Environment variables
+    This function only retrieves tokens that were extracted from request headers
+    or query parameters by the authentication middleware.
     
     Returns:
         Optional[str]: The authentication token if found, None otherwise
     """
-    session_id = get_current_session_id()
-    
     try:
-        # First try to get from context (if set by middleware)
-        token = current_user_token.get(None)
-        if token:
-            return token
+        # Get token from context (set by middleware from headers/query params)
+        return current_user_token.get(None)
     except:
-        pass
-    
-    try:
-        # Try thread-local storage
-        token = getattr(_thread_local, 'token', None)
-        if token:
-            return token
-    except:
-        pass
-    
-    # Check session-specific storage (persists across MCP tool calls for this session)
-    session_token = get_session_token(session_id)
-    if session_token:
-        return session_token
-    
-    # Fallback to environment variables
-    return extract_token_from_environment()
+        return None
 
-def get_request_token() -> Optional[str]:
-    """Deprecated: Use get_user_auth_token() instead"""
-    return get_user_auth_token()
+
 
 # Initialize MCP Server
 mcp = FastMCP("SageDataMCP")
@@ -344,134 +225,15 @@ def get_current_user_token() -> Optional[str]:
 # AUTHENTICATION TOOLS
 # ----------------------------------------
 
-# @mcp.tool()  # Disabled: use Authorization header instead
-def set_authentication_token(username: str, token: str) -> str:
-    """
-    Set your SAGE authentication credentials for accessing protected data.
-    
-    Args:
-        username: Your SAGE portal username
-        token: Your SAGE access token from https://portal.sagecontinuum.org/account/access
-    """
-    try:
-        if not username or not token:
-            return "❌ Both username and token are required. Get your token from: https://portal.sagecontinuum.org/account/access"
-        
-        # Combine username and token
-        combined_token = f"{username}:{token}"
-        set_user_token(combined_token)
-        
-        return f"✅ Authentication credentials set successfully!\n" \
-               f"Username: {username}\n" \
-               f"Token: {token[:8]}...{token[-4:] if len(token) > 12 else token}\n" \
-               f"Ready for protected data access!"
-    except Exception as e:
-        logger.error(f"Error setting authentication credentials: {e}")
-        return f"❌ Error setting authentication credentials: {str(e)}"
 
-@mcp.tool()
-def get_authentication_status() -> str:
-    """Check if an authentication token is currently set for this session"""
-    session_id = get_current_session_id()
-    token = get_current_user_token()
-    
-    if token:
-        if ':' in token:
-            # Token has username:token format
-            username, access_token = token.split(':', 1)
-            masked_token = access_token[:8] + "..." + access_token[-4:] if len(access_token) > 12 else "***"
-            return f"✅ Authentication credentials are set for this session:\n" \
-                   f"Session: {session_id[:12]}...\n" \
-                   f"Username: {username}\n" \
-                   f"Token: {masked_token}\n" \
-                   f"Ready for protected data access!"
-        else:
-            # Token without username
-            masked_token = token[:8] + "..." if len(token) > 8 else "***"
-            return f"⚠️ Authentication token is set for this session (starts with: {masked_token})\n" \
-                   f"Session: {session_id[:12]}...\n" \
-                   f"⚠️ Warning: Token format is 'token-only'. For protected data access, use username:token format.\n" \
-                   f"Use set_authentication_token(username, token) with your SAGE username."
-    else:
-        return f"❌ No authentication token is set for this session.\n" \
-               f"Session: {session_id[:12]}...\n" \
-               f"Use set_authentication_token(username, token) to set credentials.\n" \
-               f"Get your token from: https://portal.sagecontinuum.org/account/access"
 
-@mcp.tool()
-def clear_authentication_token() -> str:
-    """Clear the currently set authentication token for this session"""
-    session_id = get_current_session_id()
-    
-    try:
-        current_user_token.set(None)
-    except:
-        pass
-    
-    try:
-        if hasattr(_thread_local, 'token'):
-            delattr(_thread_local, 'token')
-    except:
-        pass
-    
-    # Clear session-specific token
-    clear_session_token(session_id)
-    
-    return "✅ Authentication credentials cleared successfully for this session."
 
-@mcp.tool()
-def list_active_sessions() -> str:
-    """List all active sessions with authentication (admin/debug tool)"""
-    with _session_lock:
-        if not _session_tokens:
-            return "📊 No active authenticated sessions"
-        
-        session_info = []
-        session_info.append("📊 **Active Authenticated Sessions:**")
-        session_info.append("")
-        
-        for session_id, token in _session_tokens.items():
-            if ':' in token:
-                username = token.split(':', 1)[0]
-                masked_token = token.split(':', 1)[1][:8] + "..."
-                session_info.append(f"🔐 Session: {session_id[:12]}...")
-                session_info.append(f"   Username: {username}")
-                session_info.append(f"   Token: {masked_token}")
-            else:
-                masked_token = token[:8] + "..." if len(token) > 8 else "***"
-                session_info.append(f"⚠️ Session: {session_id[:12]}...")
-                session_info.append(f"   Token: {masked_token} (missing username)")
-            session_info.append("")
-        
-        session_info.append(f"Total sessions: {len(_session_tokens)}")
-        return "\n".join(session_info)
 
-# @mcp.tool()  # Disabled: use Authorization header instead
-def set_authentication_token_legacy(token: str) -> str:
-    """
-    Set authentication token in legacy format (for backward compatibility).
-    
-    DEPRECATED: Use set_authentication_token(username, token) instead.
-    
-    Args:
-        token: Either 'username:token' format or just the token
-    """
-    try:
-        set_user_token(token)
-        
-        if ':' in token:
-            username = token.split(':', 1)[0]
-            return f"✅ Authentication token set successfully!\n" \
-                   f"Username: {username}\n" \
-                   f"Format: username:token ✓\n" \
-                   f"Ready for protected data access!"
-        else:
-            return f"⚠️ Authentication token set, but missing username!\n" \
-                   f"Token: {token[:8]}...{token[-4:] if len(token) > 12 else token}\n" \
-                   f"⚠️ For protected data access, use set_authentication_token(username, token) instead."
-    except Exception as e:
-        logger.error(f"Error setting authentication token: {e}")
-        return f"❌ Error setting authentication token: {str(e)}"
+
+
+
+
+
 
 # ----------------------------------------
 # 1. RESOURCES
@@ -2293,7 +2055,7 @@ def get_image_proxy_url(sage_url: str) -> str:
              f"",
              f"```bash",
              f"# Using curl (recommended) - Note the -L flag to follow redirects",
-             f"curl -L -u <your-sage-username>:<your-access-token> \"{sage_url}\" -o image.jpg",
+             f"curl -L -u \"<your-sage-username>:<your-access-token>\" \"{sage_url}\" -o image.jpg",
              f"",
              f"# Using wget",
              f"wget --user=<your-sage-username> --password=<your-access-token> \"{sage_url}\"",
@@ -2302,7 +2064,7 @@ def get_image_proxy_url(sage_url: str) -> str:
              f"**Working Example:**",
              f"```bash",
              f"# This format has been tested and confirmed working:",
-             f"curl -L -u plebbyd:4d9473cb2a21cb7716e97e5fdafdbcbf4faea051 \\",
+             f"curl -L -u \"your-username:your-access-token\" \\",
              f"  \"{sage_url}\" \\",
              f"  -o downloaded_image.jpg",
              f"```",
@@ -2335,22 +2097,24 @@ def get_image_proxy_url(sage_url: str) -> str:
                     f"- ✅ You have authentication configured (username: {username})",
                     f"- The proxy URL includes your credentials automatically",
                     f"- For direct downloads, use your SAGE username and access token",
-                    f"- ⚠️ Important: Use `-L` flag with curl to follow redirects"
+                    f"- ⚠️ Important: Always quote credentials and use `-L` flag with curl to follow redirects",
+                    f"- 💡 Tip: The working example above shows the correct format with quotes"
                 ])
             else:
                 response_parts.extend([
                     f"- ⚠️ You have a token set, but missing username",
-                    f"- Use set_authentication_token(username, token) for full access",
+                    f"- Use Authorization header with username:token for full access",
                     f"- Some protected images may not be accessible",
-                    f"- ⚠️ Important: Use `-L` flag with curl to follow redirects"
+                    f"- ⚠️ Important: Always quote credentials and use `-L` flag with curl to follow redirects"
                 ])
         else:
             response_parts.extend([
                 f"- ❌ No authentication configured",
-                f"- Use set_authentication_token(username, token) to set credentials",
+                f"- Use Authorization header to set credentials",
                 f"- Only public images will be accessible",
                 f"- Get your credentials from: https://portal.sagecontinuum.org/account/access",
-                f"- ⚠️ Important: Use `-L` flag with curl to follow redirects"
+                f"- ⚠️ Important: Always quote credentials and use `-L` flag with curl to follow redirects",
+                f"- 💡 Example: curl -L -u \"username:token\" \"<image-url>\" -o image.jpg"
             ])
         
         return "\n".join(response_parts)
