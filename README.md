@@ -11,37 +11,48 @@ A Model Context Protocol (MCP) server for interacting with the SAGE (Software-De
 - **Authentication Support**: Support for protected data access with user tokens
 - **Natural Language Queries**: Query data using natural language descriptions
 
+## Documentation
+
+Comprehensive documentation is available in the `docs/` folder:
+
+- **[Getting Started Guide](docs/GETTING_STARTED.md)** - Complete setup and usage guide
+- **[Authentication Guide](docs/AUTHENTICATION.md)** - Detailed authentication implementation
+- **[Custom Functions Guide](docs/CUSTOM_FUNCTIONS.md)** - How to add custom functionality
+- **[Docker Deployment](docs/DOCKER_DEPLOY.md)** - Containerized deployment instructions
+- **[LLM Integration](docs/llms.md)** - Language model and AI integration details
+
 ## Authentication
 
-The server supports **session-based authentication** for accessing protected SAGE data. Each user/client maintains isolated authentication credentials that don't interfere with other concurrent users. 
+The server supports authentication for accessing protected SAGE data through **HTTP headers and query parameters only**.
 
 ### Token Format
 For protected data access, use the format: `username:access_token`
 - Get your access token from: https://portal.sagecontinuum.org/account/access
 - Format: `your_username:your_access_token`
 
-### 1. MCP Tool (Recommended)
-Use the built-in authentication tool to set your credentials:
-```
-Call the tool: set_authentication_token
-Parameters:
-  username: your_sage_username
-  token: your_access_token_here
-```
-
-### 2. Environment Variable
-Set your token as an environment variable before starting the server:
+### 1. Authorization Header (Recommended)
+Use HTTP Authorization header with Basic auth:
 ```bash
-export SAGE_USER_TOKEN="username:your_access_token_here"
-# or
-export SAGE_ACCESS_TOKEN="username:your_access_token_here"
+# Basic Auth with username:token
+curl -H "Authorization: Basic $(echo -n 'username:token' | base64)" \
+     "http://localhost:8000/mcp/..."
+
+# Or Bearer token
+curl -H "Authorization: Bearer username:token" \
+     "http://localhost:8000/mcp/..."
 ```
 
-### 3. Programmatic Setting
-Set the token programmatically in your code:
-```python
-from sage_mcp import set_user_token
-set_user_token("username:your_access_token_here")
+### 2. Custom Header
+Use the custom X-SAGE-Token header:
+```bash
+curl -H "X-SAGE-Token: username:token" \
+     "http://localhost:8000/mcp/..."
+```
+
+### 3. Query Parameter
+Pass token as a query parameter:
+```bash
+curl "http://localhost:8000/mcp/...?token=username:token"
 ```
 
 ### Getting Your Access Token
@@ -53,8 +64,8 @@ set_user_token("username:your_access_token_here")
    - Signed the Data Use Agreement
    - Appropriate permissions for the data you're accessing
 
-### Token Format
-Your token can be provided in two formats:
+### Token Requirements
+For protected data access, ensure you have:
 - Just the token: `your_token_here`
 - Username and token: `username:your_token_here`
 
@@ -199,7 +210,7 @@ python sage_mcp.py
 
 ## Docker Deployment
 
-See [DOCKER_DEPLOY.md](DOCKER_DEPLOY.md) for containerized deployment instructions.
+See [DOCKER_DEPLOY.md](docs/DOCKER_DEPLOY.md) for containerized deployment instructions.
 
 ## Development
 
@@ -222,7 +233,30 @@ def my_custom_analysis(data_query: str, analysis_type: str = "basic") -> str:
     return "Analysis results..."
 ```
 
-For detailed instructions on forking, adding custom functions, and deploying your enhanced server, see our [Custom Functions Guide](CUSTOM_FUNCTIONS.md).
+For detailed instructions on forking, adding custom functions, and deploying your enhanced server, see our [Custom Functions Guide](docs/CUSTOM_FUNCTIONS.md).
+
+## Testing
+
+Testing scripts are located in the `tests/` folder:
+
+```bash
+# Test authentication functionality
+python tests/test_auth.py
+
+# Test dependencies
+python tests/test_dependencies.py
+
+# Test image proxy functionality  
+python tests/test_image_proxy.py
+
+# Test SAGE authentication
+python tests/test_sage_auth.py
+
+# Run server tests
+python tests/test_server.py
+```
+
+The authentication test will verify all supported authentication methods (headers and query parameters) work correctly.
 
 ## License
 
