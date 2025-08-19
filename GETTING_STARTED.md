@@ -522,17 +522,6 @@ df.plot()
 "Get me links to SAGE community forums and support channels"
 ```
 
-## 🌍 Real-World Impact Stories
-
-### Conservation Success
-*"Using SAGE MCP, researchers at the Nature Conservancy deployed automated bird monitoring across 15 prairie sites, leading to the discovery of a previously unknown migration corridor and informing habitat protection decisions."*
-
-### Climate Research Breakthrough
-*"Climate scientists used SAGE's multi-modal sensing to correlate flowering timing with temperature data across 3 years, providing crucial evidence for ecosystem adaptation strategies."*
-
-### Agricultural Innovation
-*"Farmers partnered with SAGE researchers to optimize pollination timing, increasing crop yields by 23% through data-driven flowering and bee activity coordination."*
-
 ## 🚀 What's Next?
 
 ### Upcoming Features
