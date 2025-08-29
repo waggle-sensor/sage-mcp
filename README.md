@@ -2,6 +2,47 @@
 
 A Model Context Protocol (MCP) server for interacting with the SAGE (Software-Defined Sensor Network) platform. This server provides tools, resources, and prompts for querying sensor data, submitting jobs, and managing SAGE nodes.
 
+## Quick Setup with Cursor IDE
+
+The easiest way to use SAGE MCP is through Cursor IDE with our hosted server:
+
+### 1. Configure Cursor MCP
+
+Add this to your Cursor MCP configuration file (`~/.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "sage": {
+      "url": "https://mcp.sagecontinuum.org/mcp",
+      "headers": {
+        "Authorization": "Bearer {username}:{auth_token}"
+      }
+    }
+  }
+}
+```
+
+### 2. Get Your SAGE Credentials
+
+1. Visit [SAGE Portal Access Credentials](https://portal.sagecontinuum.org/account/access)
+2. Sign in with your SAGE account
+3. Copy your access token
+4. Replace `{username}` with your SAGE username
+5. Replace `{auth_token}` with your access token
+
+### 3. Start Using SAGE MCP
+
+Once configured, you can ask Cursor natural language questions about SAGE data:
+
+```
+"Show me temperature readings from node W023 in the last hour"
+"Find nodes in Chicago with recent camera images"
+"What's the highest temperature recorded today across all nodes?"
+```
+
+See the [Examples Guide](docs/EXAMPLES.md) for more query examples.
+
 ## Features
 
 - **Sensor Data Queries**: Access environmental, IIO, and other sensor data from SAGE nodes

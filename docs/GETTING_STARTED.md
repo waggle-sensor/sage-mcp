@@ -32,7 +32,72 @@ sage-mcp/
 └── docker-compose.yml     # Docker orchestration
 ```
 
-## 🚀 Quick Setup
+## 🚀 Quick Setup with Cursor IDE (Recommended)
+
+The fastest way to get started with SAGE MCP is using Cursor IDE with our hosted server:
+
+### Prerequisites
+
+- [Cursor IDE](https://cursor.sh/) installed
+- A SAGE account (sign up at [portal.sagecontinuum.org](https://portal.sagecontinuum.org))
+- Internet connection
+
+### Step 1: Configure Cursor MCP
+
+1. **Open your Cursor MCP configuration file**:
+   - Location: `~/.cursor/mcp.json` (create if it doesn't exist)
+
+2. **Add the SAGE MCP server configuration**:
+   ```json
+   {
+     "mcpServers": {
+       "sage": {
+         "url": "https://mcp.sagecontinuum.org/mcp",
+         "headers": {
+           "Authorization": "Bearer {username}:{auth_token}"
+         }
+       }
+     }
+   }
+   ```
+
+### Step 2: Get Your SAGE Credentials
+
+1. **Visit the SAGE Portal**: [portal.sagecontinuum.org/account/access](https://portal.sagecontinuum.org/account/access)
+2. **Sign in** with your SAGE account (create one if needed)
+3. **Copy your access token** from the credentials section
+4. **Update your mcp.json** file:
+   - Replace `{username}` with your SAGE username
+   - Replace `{auth_token}` with your access token
+
+### Step 3: Start Using SAGE MCP
+
+1. **Restart Cursor** to load the new MCP configuration
+2. **Open the chat interface** in Cursor
+3. **Start asking questions** about SAGE data:
+
+```
+"Show me temperature readings from node W023 in the last hour"
+"Find nodes in Chicago area"  
+"What's the highest temperature recorded today across all nodes?"
+"Get recent camera images from prairie nodes"
+```
+
+### Step 4: Explore More Examples
+
+Check out the [Examples Guide](EXAMPLES.md) for comprehensive query examples covering:
+- Temperature and environmental data
+- Node information and discovery
+- Image and camera data
+- Plugin management
+- Job submission
+- Advanced analysis
+
+---
+
+## Alternative Setup Options
+
+If you prefer to run your own server instance or use other tools:
 
 ### Prerequisites
 
