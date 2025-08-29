@@ -154,7 +154,6 @@ This document provides practical examples of how to interact with the SAGE MCP s
 
 ## Support
 
-- **Documentation**: [SAGE Docs](https://docs.sagecontinuum.org)
-- **Portal**: [SAGE Portal](https://portal.sagecontinuum.org)
-- **Community**: [SAGE Forums](https://github.com/waggle-sensor/waggle/discussions)
-- **Support**: sage-support@anl.gov
+- [Sage Documentation](https://sagecontinuum.org/docs/getting-started)
+- [Sage Portal](https://portal.sagecontinuum.org)
+- [Contact Us](https://sagecontinuum.org/docs/contact-us)
