@@ -16,6 +16,9 @@ class PluginQueryService:
     def __init__(self):
         self.registry = plugin_registry
         
+        # Cache for plugins with no data to avoid repeated queries
+        self.no_data_cache = set()
+        
         # Common plugin categories and their keywords
         self.categories = {
             "cloud": ["cloud", "sky", "weather", "atmospheric", "cover"],
@@ -39,6 +42,12 @@ class PluginQueryService:
             "temperature": r".*temperature.*",
             "motion": r".*motion.*",
             "audio": r".*audio.*",
+        }
+        
+        # Known active plugins that usually have data (prioritize these)
+        self.high_priority_plugins = {
+            "imagesampler", "cloud-cover", "cloud-motion", "plugin-raingauge",
+            "plugin-iio", "air-quality", "audio-sampler"
         }
     
     def parse_natural_query(self, query: str) -> Dict[str, Any]:
@@ -101,6 +110,11 @@ class PluginQueryService:
 
         return params
     
+    def clear_no_data_cache(self):
+        """Clear the cache of plugins with no data (call periodically)"""
+        self.no_data_cache.clear()
+        logger.info("Cleared plugin no-data cache")
+    
     def find_plugins_for_task(self, task_description: str) -> List[PluginMetadata]:
         """Find plugins suitable for a given task description"""
         # Parse the natural language query
@@ -115,25 +129,33 @@ class PluginQueryService:
                 plugins = self.registry.get_plugins_by_type(category)
                 matching_plugins.extend(plugins)
         
-        # Search by direct plugin name/description
-        direct_matches = self.registry.search_plugins(task_description)
+        # Search by direct plugin name/description (limit to top 10 to reduce search space)
+        direct_matches = self.registry.search_plugins(task_description, max_results=10)
         matching_plugins.extend(direct_matches)
         
         # Remove duplicates while preserving order
         seen = set()
         unique_plugins = []
+        high_priority = []
+        regular_priority = []
+        
         for plugin in matching_plugins:
             if plugin.id not in seen:
                 seen.add(plugin.id)
-                unique_plugins.append(plugin)
+                # Prioritize known active plugins
+                if any(priority_name in plugin.name.lower() for priority_name in self.high_priority_plugins):
+                    high_priority.append(plugin)
+                else:
+                    regular_priority.append(plugin)
         
-        return unique_plugins
+        # Return high priority plugins first, then regular ones
+        return high_priority + regular_priority
     
     def query_plugin_data(
         self,
         plugin_id: str,
         nodes: Optional[List[str]] = None,
-        time_range: str = "-1h",
+        time_range: str = "-30m",
         start: str = None,
         end: str = None,
         user_token: Optional[str] = None,
@@ -143,6 +165,12 @@ class PluginQueryService:
         plugin = self.registry.get_plugin_by_id(plugin_id)
         if not plugin:
             logger.error(f"Plugin not found: {plugin_id}")
+            return pd.DataFrame()
+            
+        # Check cache to avoid querying plugins we know have no data
+        cache_key = f"{plugin.name}_{time_range}"
+        if cache_key in self.no_data_cache:
+            logger.debug(f"Skipping plugin {plugin.name} - cached as having no data")
             return pd.DataFrame()
         # Use provided start/end or parse from time_range
         if not start:
@@ -195,6 +223,8 @@ class PluginQueryService:
             df = sage_data_client.query(**query_args)
             if df.empty:
                 logger.warning(f"No data found for plugin {plugin.name}")
+                # Cache this plugin as having no data for this time range
+                self.no_data_cache.add(cache_key)
             else:
                 logger.info(f"Found {len(df)} records for plugin {plugin.name}")
             return df
@@ -251,13 +281,19 @@ class PluginQueryService:
             # Parse the query
             params = self.parse_natural_query(query)
             
-            # Find relevant plugins
-            plugins = self.find_plugins_for_task(query)
+            # Find relevant plugins (limit to top 5 to reduce API calls)
+            all_plugins = self.find_plugins_for_task(query)
+            plugins = all_plugins[:5]  # Limit to top 5 most relevant plugins
             
             if not plugins:
                 return "No plugins found matching your query. Try using different keywords or be more specific."
             
+            logger.info(f"Querying top {len(plugins)} plugins out of {len(all_plugins)} candidates")
+            
             results = []
+            data_found_count = 0
+            max_results_with_data = 3  # Stop after finding 3 plugins with actual data
+            
             for plugin in plugins:
                 # Query data for each plugin
                 df = self.query_plugin_data(
@@ -267,9 +303,19 @@ class PluginQueryService:
                     user_token=user_token
                 )
                 
-                # Format and add results
-                plugin_result = self.format_plugin_data(df, plugin)
-                results.append(plugin_result)
+                # Only include results if data was found
+                if not df.empty:
+                    plugin_result = self.format_plugin_data(df, plugin)
+                    results.append(plugin_result)
+                    data_found_count += 1
+                    
+                    # Early termination if we have enough data
+                    if data_found_count >= max_results_with_data:
+                        logger.info(f"Found data from {data_found_count} plugins, stopping early")
+                        break
+            
+            if not results:
+                return f"No data found for any of the {len(plugins)} most relevant plugins matching your query. The plugins may not be currently active or may not have recent data."
             
             # Combine all results
             return "\n\n" + "\n\n".join(results)
