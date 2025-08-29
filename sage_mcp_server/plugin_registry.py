@@ -36,7 +36,7 @@ class MeasurementType:
 
 @dataclass
 class Plugin:
-    """Model for a SAGE plugin"""
+    """Model for a Sage plugin"""
     name: str  # e.g. "waggle/plugin-iio:0.4.1"
     version: str
     measurements: List[MeasurementType]
@@ -49,16 +49,16 @@ class Plugin:
 
 class PluginRegistry:
     """Registry for managing plugin metadata and search"""
-    
+
     def __init__(self):
         self.plugins: Dict[str, Plugin] = {}
         self.measurements: Dict[str, MeasurementType] = {}
         self._initialize_known_measurements()
         self._initialize_known_plugins()
         self.refresh_cache()
-    
+
     def refresh_cache(self) -> None:
-        """Refresh the plugin metadata cache from the SAGE API"""
+        """Refresh the plugin metadata cache from the Sage API"""
         try:
             response = requests.get(SAGE_PLUGINS_URL, timeout=10)
             if response.status_code == 200:
@@ -160,7 +160,7 @@ class PluginRegistry:
         """Get all plugins that can provide a specific measurement"""
         matching_plugins = []
         measurement = self.measurements.get(measurement_name)
-        
+
         if not measurement:
             return []
 
@@ -177,7 +177,7 @@ class PluginRegistry:
     def get_plugins_by_category(self, category: DataCategory) -> List[Plugin]:
         """Get all plugins that provide measurements in a specific category"""
         matching_plugins = []
-        
+
         for plugin in self.plugins.values():
             if any(m.category == category for m in plugin.measurements):
                 matching_plugins.append(plugin)
@@ -199,8 +199,8 @@ class PluginRegistry:
         logger.info(f"Registered measurement type: {measurement.name}")
 
 class QueryBuilder:
-    """Helper class to build SAGE data queries"""
-    
+    """Helper class to build Sage data queries"""
+
     def __init__(self, registry: PluginRegistry):
         self.registry = registry
 
@@ -212,7 +212,7 @@ class QueryBuilder:
     ) -> Dict[str, str]:
         """Build query parameters for a specific measurement"""
         params = {"name": measurement_name}
-        
+
         if node_id:
             params["vsn"] = node_id
 
@@ -245,4 +245,4 @@ class QueryBuilder:
         if node_id:
             params["vsn"] = node_id
 
-        return params 
+        return params

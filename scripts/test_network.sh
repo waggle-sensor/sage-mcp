@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🔍 Testing SAGE MCP Server Network Access"
+echo "🔍 Testing Sage MCP Server Network Access"
 echo "========================================"
 
 # Get container info
@@ -65,4 +65,4 @@ echo -e "\n💡 Quick Fixes to Try:"
 echo "1. curl http://localhost:8000/mcp/ (with trailing slash)"
 echo "2. Check firewall: sudo ufw status"
 echo "3. Check Docker logs: docker logs sage-mcp"
-echo "4. Rebuild: docker-compose down && docker-compose up --build" 
+echo "4. Rebuild: docker-compose down && docker-compose up --build"

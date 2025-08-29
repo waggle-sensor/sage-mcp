@@ -1,6 +1,6 @@
-# Adding Custom Functions to SAGE MCP Server
+# Adding Custom Functions to Sage MCP Server
 
-This guide explains how to fork the SAGE MCP server repository and add your own custom MCP tools and functions.
+This guide explains how to fork the Sage MCP server repository and add your own custom MCP tools and functions.
 
 ## Table of Contents
 
@@ -14,7 +14,7 @@ This guide explains how to fork the SAGE MCP server repository and add your own 
 
 ## Overview
 
-The SAGE MCP server is built using [FastMCP](https://github.com/jlowin/fastmcp), which makes it easy to add custom Model Context Protocol (MCP) tools. You can extend the server with:
+The Sage MCP server is built using [FastMCP](https://github.com/jlowin/fastmcp), which makes it easy to add custom Model Context Protocol (MCP) tools. You can extend the server with:
 
 - **Custom data analysis functions**
 - **Specialized sensor data processing**
@@ -77,32 +77,32 @@ Add this function anywhere in `sage_mcp.py` before the `main()` function:
 ```python
 @mcp.tool()
 def analyze_temperature_trends(
-    node_id: str, 
+    node_id: str,
     days: int = 7,
     threshold_temp: float = 25.0
 ) -> str:
     """
     Analyze temperature trends for a node over specified days.
-    
+
     Args:
-        node_id: SAGE node identifier (e.g., 'W023')
+        node_id: Sage node identifier (e.g., 'W023')
         days: Number of days to analyze (default: 7)
         threshold_temp: Temperature threshold in Celsius (default: 25.0)
-    
+
     Returns:
         Formatted analysis report
     """
     try:
         # Validate inputs
         validated_node = NodeID(value=node_id)
-        
+
         # Calculate time range
         time_range = f"-{days}d"
-        
+
         # Get data using existing data service
         data_service = SageDataService()
         user_token = get_current_user_token()
-        
+
         # Query temperature data
         temp_data = data_service.query_data(
             start=time_range,
@@ -112,27 +112,27 @@ def analyze_temperature_trends(
             },
             user_token=user_token
         )
-        
+
         if temp_data.empty:
             return f"❌ No temperature data found for node {node_id} in the last {days} days"
-        
+
         # Perform analysis
         avg_temp = temp_data['value'].mean()
         max_temp = temp_data['value'].max()
         min_temp = temp_data['value'].min()
-        
+
         # Count readings above threshold
         high_temp_count = len(temp_data[temp_data['value'] > threshold_temp])
         total_readings = len(temp_data)
         high_temp_percentage = (high_temp_count / total_readings) * 100
-        
+
         # Format results
         results = [
             f"🌡️ **Temperature Analysis for Node {node_id}**",
             f"",
             f"📊 **Statistics ({days} days):**",
             f"• Average: {avg_temp:.1f}°C",
-            f"• Maximum: {max_temp:.1f}°C", 
+            f"• Maximum: {max_temp:.1f}°C",
             f"• Minimum: {min_temp:.1f}°C",
             f"• Total readings: {total_readings}",
             f"",
@@ -140,9 +140,9 @@ def analyze_temperature_trends(
             f"• High temperature readings: {high_temp_count}",
             f"• Percentage above threshold: {high_temp_percentage:.1f}%",
         ]
-        
+
         return "\\n".join(results)
-        
+
     except Exception as e:
         logger.error(f"Error in temperature trend analysis: {e}")
         return f"❌ Error analyzing temperature trends: {str(e)}"
@@ -167,12 +167,12 @@ python sage_mcp.py
 @mcp.tool()
 def compare_nodes_environmental(
     node_ids: str,
-    metric: str = "env.temperature", 
+    metric: str = "env.temperature",
     time_range: str = "-24h"
 ) -> str:
     """
     Compare environmental metrics across multiple nodes.
-    
+
     Args:
         node_ids: Comma-separated list of node IDs (e.g., "W023,W027,W019")
         metric: Environmental metric to compare (default: "env.temperature")
@@ -183,18 +183,18 @@ def compare_nodes_environmental(
         nodes = [node.strip() for node in node_ids.split(',') if node.strip()]
         if not nodes:
             return "❌ No valid nodes provided"
-        
+
         data_service = SageDataService()
         user_token = get_current_user_token()
-        
+
         results = []
         node_stats = {}
-        
+
         # Collect data for each node
         for node_id in nodes:
             try:
                 validated_node = NodeID(value=node_id)
-                
+
                 data = data_service.query_data(
                     start=time_range,
                     filter_params={
@@ -203,7 +203,7 @@ def compare_nodes_environmental(
                     },
                     user_token=user_token
                 )
-                
+
                 if not data.empty:
                     node_stats[node_id] = {
                         'avg': data['value'].mean(),
@@ -213,11 +213,11 @@ def compare_nodes_environmental(
                     }
                 else:
                     node_stats[node_id] = None
-                    
+
             except Exception as e:
                 logger.warning(f"Error processing node {node_id}: {e}")
                 node_stats[node_id] = None
-        
+
         # Format comparison results
         results = [
             f"📊 **Multi-Node Environmental Comparison**",
@@ -229,7 +229,7 @@ def compare_nodes_environmental(
             "| Node | Avg | Max | Min | Readings |",
             "|------|-----|-----|-----|----------|"
         ]
-        
+
         for node_id in nodes:
             stats = node_stats[node_id]
             if stats:
@@ -238,22 +238,22 @@ def compare_nodes_environmental(
                 )
             else:
                 results.append(f"| {node_id} | No data | No data | No data | 0 |")
-        
+
         # Add summary insights
         valid_nodes = {k: v for k, v in node_stats.items() if v is not None}
         if valid_nodes:
             best_avg = min(valid_nodes.items(), key=lambda x: x[1]['avg'])
             worst_avg = max(valid_nodes.items(), key=lambda x: x[1]['avg'])
-            
+
             results.extend([
                 f"",
                 f"🏆 **Insights:**",
                 f"• Lowest average: {best_avg[0]} ({best_avg[1]['avg']:.1f})",
                 f"• Highest average: {worst_avg[0]} ({worst_avg[1]['avg']:.1f})"
             ])
-        
+
         return "\\n".join(results)
-        
+
     except Exception as e:
         logger.error(f"Error in multi-node comparison: {e}")
         return f"❌ Error comparing nodes: {str(e)}"
@@ -270,24 +270,24 @@ def export_node_data_csv(
 ) -> str:
     """
     Export node data to CSV format for external analysis.
-    
+
     Args:
-        node_id: SAGE node identifier
+        node_id: Sage node identifier
         time_range: Time range for data export
         measurements: Comma-separated list of measurements to export
     """
     try:
         import pandas as pd
         from datetime import datetime
-        
+
         validated_node = NodeID(value=node_id)
         measurement_list = [m.strip() for m in measurements.split(',')]
-        
+
         data_service = SageDataService()
         user_token = get_current_user_token()
-        
+
         all_data = []
-        
+
         # Collect data for each measurement
         for measurement in measurement_list:
             data = data_service.query_data(
@@ -298,24 +298,24 @@ def export_node_data_csv(
                 },
                 user_token=user_token
             )
-            
+
             if not data.empty:
                 data['measurement'] = measurement
                 all_data.append(data)
-        
+
         if not all_data:
             return f"❌ No data found for node {node_id} with specified measurements"
-        
+
         # Combine all data
         combined_data = pd.concat(all_data, ignore_index=True)
-        
+
         # Create filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"sage_data_{node_id}_{timestamp}.csv"
-        
+
         # Export to CSV (in production, you'd save to a file or return the data)
         csv_content = combined_data.to_csv(index=False)
-        
+
         results = [
             f"📁 **Data Export Completed**",
             f"",
@@ -328,20 +328,20 @@ def export_node_data_csv(
             f"**CSV Preview (first 10 lines):**",
             f"```csv"
         ]
-        
+
         # Add preview of CSV content
         preview_lines = csv_content.split('\\n')[:10]
         results.extend(preview_lines)
         results.append("```")
-        
+
         # In a real implementation, you might:
         # 1. Save to a temporary file and return the path
         # 2. Upload to cloud storage and return a download link
         # 3. Send via email
         # 4. Store in a database
-        
+
         return "\\n".join(results)
-        
+
     except Exception as e:
         logger.error(f"Error exporting data: {e}")
         return f"❌ Error exporting data: {str(e)}"
@@ -375,7 +375,7 @@ def custom_function_1():
     """First custom function"""
     pass
 
-@mcp.tool() 
+@mcp.tool()
 def custom_function_2():
     """Second custom function"""
     pass
@@ -487,13 +487,13 @@ If you create useful custom functions, consider contributing them back to the ma
 3. **Include tests**
 4. **Submit a pull request**
 
-Your contributions help the entire SAGE community!
+Your contributions help the entire Sage community!
 
 ---
 
 **Happy coding!** 🚀
 
-For more information about SAGE and the MCP protocol, see:
-- [SAGE Documentation](https://sagecontinuum.org)
+For more information about Sage and the MCP protocol, see:
+- [Sage Documentation](https://sagecontinuum.org)
 - [FastMCP Documentation](https://github.com/jlowin/fastmcp)
 - [Model Context Protocol](https://modelcontextprotocol.io)

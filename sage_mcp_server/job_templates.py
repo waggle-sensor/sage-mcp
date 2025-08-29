@@ -2,8 +2,8 @@ from typing import List
 from .models import SageJob, PluginSpec, PluginArguments, SelectorRequirements, CameraSageJob
 
 class JobTemplates:
-    """Predefined job templates for common SAGE jobs"""
-    
+    """Predefined job templates for common Sage jobs"""
+
     @staticmethod
     def image_sampler(
         job_name: str,
@@ -29,7 +29,7 @@ class JobTemplates:
             plugins=[plugin],
             science_rules=[science_rule]
         )
-    
+
     @staticmethod
     def ptz_sampler(
         job_name: str,
@@ -54,7 +54,7 @@ class JobTemplates:
             plugins=[plugin],
             science_rules=[science_rule]
         )
-    
+
     @staticmethod
     def yolo_detector(
         job_name: str,
@@ -80,7 +80,7 @@ class JobTemplates:
             plugins=[plugin],
             science_rules=[science_rule]
         )
-    
+
     @staticmethod
     def ptz_yolo(
         job_name: str,
@@ -116,7 +116,7 @@ class JobTemplates:
             selector=SelectorRequirements(gpu=True, camera=True, usb=None)
         )
         return SageJob(name=job_name, nodes=nodes, plugins=[plugin])
-    
+
     @staticmethod
     def air_quality(
         job_name: str,
@@ -141,7 +141,7 @@ class JobTemplates:
             node_value_format="true",
             success_criteria=["WallClock('1day')"]
         )
-    
+
     @staticmethod
     def mobotix_scan(
         job_name: str,
@@ -175,7 +175,7 @@ class JobTemplates:
             plugins=[plugin],
             science_rules=[science_rule]
         )
-    
+
     @staticmethod
     def audio_sampler(
         job_name: str,
@@ -194,7 +194,7 @@ class JobTemplates:
             plugins=[plugin],
             science_rules=[science_rule]
         )
-    
+
     @staticmethod
     def camera_sampler(
         job_name: str,
@@ -225,7 +225,7 @@ class JobTemplates:
             camera_plugin_name=plugin_name
         )
         return job
-    
+
     @staticmethod
     def cloud_cover(
         job_name: str,
@@ -246,7 +246,7 @@ class JobTemplates:
             plugins=[plugin],
             science_rules=[science_rule]
         )
-    
+
     @staticmethod
     def solar_irradiance(
         job_name: str,
@@ -267,7 +267,7 @@ class JobTemplates:
             plugins=[plugin],
             science_rules=[science_rule]
         )
-    
+
     @staticmethod
     def sound_event_detection(
         job_name: str,
@@ -292,7 +292,7 @@ class JobTemplates:
             plugins=[plugin],
             science_rules=[science_rule]
         )
-    
+
     @staticmethod
     def avian_diversity_monitoring(
         job_name: str,
@@ -317,7 +317,7 @@ class JobTemplates:
             plugins=[plugin],
             science_rules=[science_rule]
         )
-    
+
     @staticmethod
     def weather_classification(
         job_name: str,
@@ -342,7 +342,7 @@ class JobTemplates:
             plugins=[plugin],
             science_rules=[science_rule]
         )
-    
+
     @staticmethod
     def waggle_aqt(
         job_name: str,
@@ -367,7 +367,7 @@ class JobTemplates:
             plugins=[plugin],
             science_rules=[science_rule]
         )
-    
+
     @staticmethod
     def waggle_wxt536(
         job_name: str,
@@ -392,7 +392,7 @@ class JobTemplates:
             plugins=[plugin],
             science_rules=[science_rule]
         )
-    
+
     @staticmethod
     def multi_plugin_ml_suite(
         job_name: str,
@@ -441,4 +441,4 @@ class JobTemplates:
             nodes=nodes,
             plugins=plugins,
             science_rules=science_rules
-        ) 
+        )

@@ -1,6 +1,6 @@
-# SAGE MCP Examples
+# Sage MCP Examples
 
-This document provides practical examples of how to interact with the SAGE MCP server using natural language prompts. These examples work with AI assistants like Claude, ChatGPT, or through AI-powered IDEs like Cursor.
+This document provides practical examples of how to interact with the Sage MCP server using natural language prompts. These examples work with AI assistants like Claude, ChatGPT, or through AI-powered IDEs like Cursor.
 
 ## Temperature and Environmental Data
 
@@ -35,7 +35,7 @@ This document provides practical examples of how to interact with the SAGE MCP s
 ## Node Information and Discovery
 
 ```
-"List all available SAGE nodes and their current status"
+"List all available Sage nodes and their current status"
 
 "Find nodes in Chicago area"
 
@@ -97,7 +97,7 @@ This document provides practical examples of how to interact with the SAGE MCP s
 
 "Deploy air quality monitoring to urban nodes"
 
-"Show me all active jobs currently running across the SAGE network"
+"Show me all active jobs currently running across the Sage network"
 ```
 
 ## Advanced Analysis Examples
@@ -109,7 +109,7 @@ This document provides practical examples of how to interact with the SAGE MCP s
 
 "Calculate average atmospheric pressure across all Midwest nodes"
 
-"Compare air quality between urban and rural SAGE nodes"
+"Compare air quality between urban and rural Sage nodes"
 
 "Show me rainfall data from all nodes in the last 48 hours"
 ```

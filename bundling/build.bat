@@ -1,9 +1,9 @@
 @echo off
-REM Build script for SAGE MCP executable on Windows
+REM Build script for Sage MCP executable on Windows
 REM This script provides a convenient wrapper around the Python build script
 
 echo.
-echo 🚀 SAGE MCP Executable Builder for Windows
+echo 🚀 Sage MCP Executable Builder for Windows
 echo ==========================================
 echo.
 
@@ -37,7 +37,7 @@ if exist "bundling\dist\sage_mcp.exe" (
     echo 📍 Executable location: %cd%\bundling\dist\sage_mcp.exe
     echo.
     echo 🧪 Testing executable startup...
-    
+
     REM Test the executable with a timeout (Windows doesn't have timeout command by default)
     echo Starting executable test...
     start /wait /b "" "bundling\dist\sage_mcp.exe" --help >nul 2>&1
@@ -46,7 +46,7 @@ if exist "bundling\dist\sage_mcp.exe" (
     ) else (
         echo ⚠️  Executable test inconclusive, but file exists
     )
-    
+
     echo.
     echo 💡 To run the server:
     echo    bundling\dist\sage_mcp.exe
@@ -67,4 +67,4 @@ if exist "bundling\dist\sage_mcp.exe" (
 )
 
 echo Press any key to continue...
-pause >nul 
+pause >nul

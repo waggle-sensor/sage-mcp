@@ -6,8 +6,8 @@ from typing import List, Tuple
 logger = logging.getLogger(__name__)
 
 class SAGEDocsHelper:
-    """Helper class for searching and answering questions from SAGE documentation"""
-    
+    """Helper class for searching and answering questions from Sage documentation"""
+
     def __init__(self, docs_file_path: str = "docs/llms.md"):
         self.docs_file_path = docs_file_path
         self.docs_content = ""
@@ -15,7 +15,7 @@ class SAGEDocsHelper:
         self.faqs = {}
         self._load_documentation()
         self._setup_faqs()
-    
+
     def _load_documentation(self):
         try:
             docs_path = Path(self.docs_file_path)
@@ -28,7 +28,7 @@ class SAGEDocsHelper:
                 logger.warning(f"Documentation file {self.docs_file_path} not found")
         except Exception as e:
             logger.error(f"Error loading documentation: {e}")
-    
+
     def _parse_sections(self):
         if not self.docs_content:
             return
@@ -49,12 +49,12 @@ class SAGEDocsHelper:
                     current_content += content
         if current_section:
             self.sections[current_section] = current_content
-    
+
     def _setup_faqs(self):
         self.faqs = {
             # ... (copy FAQ dict from sage_mcp.py) ...
         }
-    
+
     def search_docs(self, query: str, max_results: int = 3) -> List[Tuple[str, str, float]]:
         if not self.docs_content:
             return []
@@ -78,17 +78,17 @@ class SAGEDocsHelper:
                 results.append((section_name, preview, score))
         results.sort(key=lambda x: x[2], reverse=True)
         return results[:max_results]
-    
+
     def get_faq_answer(self, topic: str) -> str:
         if topic.lower() in self.faqs:
             faq = self.faqs[topic.lower()]
             return f"**{faq['question']}**\n\n{faq['answer']}"
         return ""
-    
+
     def list_faq_topics(self) -> str:
         topics = list(self.faqs.keys())
         return "Available FAQ topics:\n" + "\n".join(f"- {topic}" for topic in topics)
-    
+
     def search_and_answer(self, question: str) -> str:
         question_lower = question.lower()
         faq_matches = []
@@ -111,4 +111,4 @@ class SAGEDocsHelper:
         if not response_parts:
             return f"I couldn't find specific information about '{question}' in the documentation. " + \
                    f"Try asking about: {', '.join(self.faqs.keys())} or contact us for help."
-        return "\n".join(response_parts) 
+        return "\n".join(response_parts)

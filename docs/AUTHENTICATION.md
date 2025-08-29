@@ -1,12 +1,12 @@
-# Authentication Implementation for SAGE MCP Server
+# Authentication Implementation for Sage MCP Server
 
-This document describes the authentication feature implemented for the SAGE MCP server to support protected data access.
+This document describes the authentication feature implemented for the Sage MCP server to support protected data access.
 
 ## Overview
 
-The SAGE MCP server supports user authentication tokens to access protected data that requires:
-- A valid SAGE account
-- Signed Data Use Agreement  
+The Sage MCP server supports user authentication tokens to access protected data that requires:
+- A valid Sage account
+- Signed Data Use Agreement
 - Appropriate permissions for the requested data
 
 **Authentication is only supported through HTTP headers and query parameters.**
@@ -71,8 +71,8 @@ def query_data(
 The implementation tries multiple authentication approaches with sage_data_client:
 
 1. **Direct token parameter**: `query_args["token"] = user_token`
-2. **Auth parameter**: `query_args["auth"] = user_token`  
-3. **Username/password format**: Based on SAGE documentation showing username and token as password
+2. **Auth parameter**: `query_args["auth"] = user_token`
+3. **Username/password format**: Based on Sage documentation showing username and token as password
 
 ```python
 # Method 3: Username/password format
@@ -107,7 +107,7 @@ else:
 
 ### All Tools Updated
 
-Every tool that queries SAGE data supports authentication through headers/query params:
+Every tool that queries Sage data supports authentication through headers/query params:
 - `get_node_all_data()`
 - `get_node_iio_data()`
 - `get_environmental_summary()`
@@ -229,7 +229,7 @@ The following authentication methods have been **removed** and are no longer sup
 
 - Environment variable authentication (`SAGE_USER_TOKEN`, `SAGE_ACCESS_TOKEN`)
 - Session-based token storage
-- Thread-local token storage  
+- Thread-local token storage
 - MCP authentication tools (`set_authentication_token`, `get_authentication_status`, etc.)
 - Programmatic token setting (`set_user_token`)
 - Context-based token extraction (non-HTTP)

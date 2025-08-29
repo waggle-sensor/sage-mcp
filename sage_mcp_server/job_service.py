@@ -9,11 +9,11 @@ from .models import SageConfig, SageJob
 logger = logging.getLogger(__name__)
 
 class SageJobService:
-    """Service for submitting and managing SAGE jobs"""
-    
+    """Service for submitting and managing Sage jobs"""
+
     def __init__(self, config: SageConfig):
         self.config = config
-    
+
     def submit_job(self, job: SageJob) -> tuple[bool, str]:
         try:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
@@ -52,7 +52,7 @@ class SageJobService:
                 else:
                     error_msg = result.stderr.strip() or result.stdout.strip()
                     if "must provide a valid token" in error_msg:
-                        return False, f"❌ Authentication required: Please provide a valid SAGE token.\nError: {error_msg}"
+                        return False, f"❌ Authentication required: Please provide a valid Sage token.\nError: {error_msg}"
                     return False, f"❌ Job submission failed:\n{error_msg}"
             finally:
                 if os.path.exists(temp_yaml_path):
@@ -60,7 +60,7 @@ class SageJobService:
         except Exception as e:
             logger.error(f"Error submitting job: {e}")
             return False, f"❌ Error submitting job: {e}"
-    
+
     def check_job_status(self, job_id: str) -> str:
         try:
             cmd = ["sesctl", "stat", "--job-id", job_id]
@@ -83,7 +83,7 @@ class SageJobService:
         except Exception as e:
             logger.error(f"Error checking job status: {e}")
             return f"❌ Error checking job status: {e}"
-    
+
     def force_remove_job(self, job_id: str) -> str:
         try:
             cmd = ["sesctl", "rm", "--force", job_id]
@@ -122,4 +122,4 @@ class SageJobService:
                 return f"❌ Error suspending job {job_id}:\nReturn code: {result.returncode}\nError: {error_output}"
         except Exception as e:
             logger.error(f"Error suspending job: {e}")
-            return f"❌ Error suspending job: {e}" 
+            return f"❌ Error suspending job: {e}"

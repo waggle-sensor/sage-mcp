@@ -1,6 +1,6 @@
 # Docker Deployment Guide
 
-This guide covers multiple approaches to deploy the SAGE MCP Server using Docker with external access.
+This guide covers multiple approaches to deploy the Sage MCP Server using Docker with external access.
 
 ## Quick Start
 
@@ -72,7 +72,7 @@ The Docker container uses FastMCP's built-in HTTP server:
 - **File**: `sage_mcp.py`
 - **Command**: `python sage_mcp.py`
 - **Transport**: FastMCP's built-in "http" transport
-- **Benefits**: 
+- **Benefits**:
   - Native FastMCP support
   - Full control over host/port binding
   - Production-ready with uvicorn internally
@@ -217,4 +217,4 @@ print('✅ All dependencies imported successfully!')
 1. **Import Errors**: Rebuild with `--no-cache` to ensure fresh dependency installation
 2. **Port Conflicts**: Make sure port 8000 is not in use by another service
 3. **Memory Issues**: Ensure Docker has sufficient memory allocated (at least 2GB recommended)
-4. **Network Issues**: Check firewall settings if external access is not working 
+4. **Network Issues**: Check firewall settings if external access is not working

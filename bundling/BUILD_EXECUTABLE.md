@@ -1,6 +1,6 @@
-# Building SAGE MCP Server as Executable
+# Building Sage MCP Server as Executable
 
-This guide shows how to build the SAGE MCP server as a standalone executable that can run without Python installation.
+This guide shows how to build the Sage MCP server as a standalone executable that can run without Python installation.
 
 ## Quick Start (macOS)
 
@@ -121,13 +121,13 @@ The executable is self-contained and can be distributed to other macOS machines 
 ### What's Included
 - Python runtime
 - All Python dependencies (pandas, numpy, fastmcp, etc.)
-- SAGE MCP server code
+- Sage MCP server code
 - All necessary libraries
 
 ### System Requirements
 - macOS (built for the architecture you're building on)
 - No Python installation required on target machine
-- Network access for SAGE API calls
+- Network access for Sage API calls
 
 ## File Structure After Build
 
@@ -167,4 +167,4 @@ The executable respects these environment variables:
 - **File size**: ~100-200MB (includes full Python runtime)
 - **Performance**: Identical to running the Python script directly
 
-The slight startup delay is due to PyInstaller extracting the Python runtime and dependencies on first run. 
+The slight startup delay is due to PyInstaller extracting the Python runtime and dependencies on first run.

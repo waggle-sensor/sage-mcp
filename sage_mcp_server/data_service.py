@@ -9,8 +9,8 @@ import os
 logger = logging.getLogger(__name__)
 
 class SageDataService:
-    """Service for interacting with SAGE data client"""
-    
+    """Service for interacting with Sage data client"""
+
     @staticmethod
     def query_data(
         start: str,
@@ -27,11 +27,11 @@ class SageDataService:
                 start, end = parse_time_range(start)
             elif isinstance(start, str) and not ('T' in start and 'Z' in start):
                 start, end = parse_time_range(start)
-            
+
             query_args = {"start": start, "filter": filter_params}
             if end:
                 query_args["end"] = end
-            
+
             # Note: sage_data_client.query() does not accept authentication parameters
             # Authentication for protected data must be configured at the system level
             # For now, we'll query public data and log authentication status
@@ -44,24 +44,24 @@ class SageDataService:
                     logger.warning(f"Token provided without username. For protected data access, use 'username:token' format")
                     logger.info(f"Attempting query with simple token - may only return public data")
             else:
-                logger.info(f"Querying SAGE data without authentication (public data only)")
-            
+                logger.info(f"Querying Sage data without authentication (public data only)")
+
             # Add timeout warning for large queries
-            logger.info(f"Executing SAGE query with parameters: {query_args}")
-            
+            logger.info(f"Executing Sage query with parameters: {query_args}")
+
             df = sage_data_client.query(**query_args)
             logger.info(f"Query returned {len(df)} records")
-            
+
             # Limit result size to prevent overwhelming responses
             if len(df) > 1000:
                 logger.warning(f"Large result set ({len(df)} records) - limiting to 1000 most recent")
                 df = df.sort_values('timestamp', ascending=False).head(1000)
-                
+
             return df
         except Exception as e:
             error_str = str(e)
-            logger.error(f"Error querying SAGE data: {error_str}")
-            
+            logger.error(f"Error querying Sage data: {error_str}")
+
             # Handle different types of errors with specific guidance
             if "timeout" in error_str.lower() or "504" in error_str:
                 logger.error("Query timed out - try reducing the time range or being more specific with filters")
@@ -70,12 +70,12 @@ class SageDataService:
                 logger.error("Authentication failed. Please check your token and permissions.")
                 logger.error("For protected data access, you need:")
                 logger.error("1. A valid Sage account")
-                logger.error("2. Signed Data Use Agreement") 
+                logger.error("2. Signed Data Use Agreement")
                 logger.error("3. Valid access token from https://portal.sagecontinuum.org/account/access")
                 logger.error("4. Token format: 'username:token' or just 'token'")
             elif "500" in error_str or "502" in error_str or "503" in error_str:
-                logger.error("SAGE service temporarily unavailable - try again in a few moments")
-            
+                logger.error("Sage service temporarily unavailable - try again in a few moments")
+
             return pd.DataFrame()
 
     @staticmethod
@@ -118,15 +118,15 @@ class SageDataService:
             ".*cloud-motion.*",
             ".*imagesampler.*"
         ]
-        
+
         start, end = parse_time_range(time_range)
         filter_params = {
             "plugin": '|'.join(cloud_plugins)
         }
-        
+
         if node_id:
             filter_params["vsn"] = str(node_id)
-        
+
         return SageDataService.query_data(start, end, filter_params, user_token=user_token)
 
     @staticmethod
@@ -168,4 +168,4 @@ class SageDataService:
             filter_params["vsn"] = str(node_id)
         if data_type != "upload":
             filter_params["name"] = data_type
-        return SageDataService.query_data(start, end, filter_params, user_token=user_token) 
+        return SageDataService.query_data(start, end, filter_params, user_token=user_token)

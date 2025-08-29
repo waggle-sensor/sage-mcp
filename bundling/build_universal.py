@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Universal build script for SAGE MCP executable.
+Universal build script for Sage MCP executable.
 This script detects the platform and runs the appropriate build process.
 """
 
@@ -13,7 +13,7 @@ from pathlib import Path
 def detect_platform():
     """Detect the current platform and return appropriate script info."""
     system = platform.system().lower()
-    
+
     if system == 'windows':
         return {
             'platform': 'Windows',
@@ -46,18 +46,18 @@ def detect_platform():
 def main():
     """Main function to run the appropriate build script."""
     platform_info = detect_platform()
-    
-    print(f"🚀 SAGE MCP Universal Build Script")
+
+    print(f"🚀 Sage MCP Universal Build Script")
     print(f"==================================")
     print(f"{platform_info['icon']} Detected platform: {platform_info['platform']}")
     print()
-    
+
     # Check if we're in the right directory
     if not Path('build_executable.py').exists():
         print("❌ Error: This script must be run from the bundling directory")
         print("   cd bundling && python build_universal.py")
         sys.exit(1)
-    
+
     # Option 1: Always use the Python build script (recommended)
     if platform_info['python_build']:
         print("🔨 Using cross-platform Python build script...")
@@ -70,7 +70,7 @@ def main():
             # Fallback to subprocess call
             python_cmd = 'python' if platform_info['platform'] == 'Windows' else 'python3'
             subprocess.run([python_cmd, 'build_executable.py'], check=True)
-    
+
     # Option 2: Use platform-specific scripts (if they exist and user prefers)
     elif platform_info['script'] and Path(platform_info['script']).exists():
         print(f"🔨 Using platform-specific script: {platform_info['script']}")
@@ -78,7 +78,7 @@ def main():
             subprocess.run([platform_info['script']], shell=True, check=True)
         else:
             subprocess.run(['bash', platform_info['script']], check=True)
-    
+
     else:
         print("⚠️  No platform-specific script found, falling back to Python build...")
         python_cmd = 'python' if platform_info['platform'] == 'Windows' else 'python3'
@@ -95,4 +95,4 @@ if __name__ == "__main__":
         sys.exit(e.returncode)
     except Exception as e:
         print(f"\n❌ Unexpected error: {e}")
-        sys.exit(1) 
+        sys.exit(1)

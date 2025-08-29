@@ -1,10 +1,10 @@
-# Getting Started with SAGE MCP
+# Getting Started with Sage MCP
 
-A comprehensive guide to using the SAGE Model Context Protocol (MCP) server for interacting with the SAGE edge computing ecosystem through LLMs and IDEs like Cursor.
+A comprehensive guide to using the Sage Model Context Protocol (MCP) server for interacting with the Sage edge computing ecosystem through LLMs and IDEs like Cursor.
 
-## 🌟 What is SAGE MCP?
+## 🌟 What is Sage MCP?
 
-The SAGE MCP is a powerful interface that connects Large Language Models (LLMs) and AI-powered IDEs to the SAGE ecosystem. It provides:
+The Sage MCP is a powerful interface that connects Large Language Models (LLMs) and AI-powered IDEs to the Sage ecosystem. It provides:
 
 - **Real-time sensor data access** from 100+ edge nodes worldwide
 - **Intelligent plugin discovery** and recommendation
@@ -34,12 +34,12 @@ sage-mcp/
 
 ## 🚀 Quick Setup with Cursor IDE (Recommended)
 
-The fastest way to get started with SAGE MCP is using Cursor IDE with our hosted server:
+The fastest way to get started with Sage MCP is using Cursor IDE with our hosted server:
 
 ### Prerequisites
 
 - [Cursor IDE](https://cursor.sh/) installed
-- A SAGE account (sign up at [portal.sagecontinuum.org](https://portal.sagecontinuum.org))
+- A Sage account (sign up at [portal.sagecontinuum.org](https://portal.sagecontinuum.org))
 - Internet connection
 
 ### Step 1: Configure Cursor MCP
@@ -47,7 +47,7 @@ The fastest way to get started with SAGE MCP is using Cursor IDE with our hosted
 1. **Open your Cursor MCP configuration file**:
    - Location: `~/.cursor/mcp.json` (create if it doesn't exist)
 
-2. **Add the SAGE MCP server configuration**:
+2. **Add the Sage MCP server configuration**:
    ```json
    {
      "mcpServers": {
@@ -61,24 +61,24 @@ The fastest way to get started with SAGE MCP is using Cursor IDE with our hosted
    }
    ```
 
-### Step 2: Get Your SAGE Credentials
+### Step 2: Get Your Sage Credentials
 
-1. **Visit the SAGE Portal**: [portal.sagecontinuum.org/account/access](https://portal.sagecontinuum.org/account/access)
-2. **Sign in** with your SAGE account (create one if needed)
+1. **Visit the Sage Portal**: [portal.sagecontinuum.org/account/access](https://portal.sagecontinuum.org/account/access)
+2. **Sign in** with your Sage account (create one if needed)
 3. **Copy your access token** from the credentials section
 4. **Update your mcp.json** file:
-   - Replace `{username}` with your SAGE username
+   - Replace `{username}` with your Sage username
    - Replace `{auth_token}` with your access token
 
-### Step 3: Start Using SAGE MCP
+### Step 3: Start Using Sage MCP
 
 1. **Restart Cursor** to load the new MCP configuration
 2. **Open the chat interface** in Cursor
-3. **Start asking questions** about SAGE data:
+3. **Start asking questions** about Sage data:
 
 ```
 "Show me temperature readings from node W023 in the last hour"
-"Find nodes in Chicago area"  
+"Find nodes in Chicago area"
 "What's the highest temperature recorded today across all nodes?"
 "Get recent camera images from prairie nodes"
 ```
@@ -103,7 +103,7 @@ If you prefer to run your own server instance or use other tools:
 
 - Python 3.8+ installed
 - Access to an LLM interface (Claude, ChatGPT, etc.) or AI IDE (Cursor)
-- Internet connection for SAGE data access
+- Internet connection for Sage data access
 
 ### Installation Options
 
@@ -154,7 +154,7 @@ The server will start on `http://localhost:8000/mcp` and display available tools
 
 **Discover what's available**:
 ```
-"Show me all available SAGE nodes and their sensors"
+"Show me all available Sage nodes and their sensors"
 "What environmental data is available from the last hour?"
 "List nodes in Chicago with temperature sensors"
 ```
@@ -177,7 +177,7 @@ The server will start on `http://localhost:8000/mcp` and display available tools
 
 **Get development guidance**:
 ```
-"How do I create a custom SAGE plugin for detecting flowers?"
+"How do I create a custom Sage plugin for detecting flowers?"
 "What's the best approach for real-time audio analysis on edge nodes?"
 "Help me optimize a YOLO model for edge deployment"
 ```
@@ -204,7 +204,7 @@ The server will start on `http://localhost:8000/mcp` and display available tools
 
 **Exploratory Data Analysis**:
 ```
-"I'm studying pollinator activity. What SAGE data would be most relevant?"
+"I'm studying pollinator activity. What Sage data would be most relevant?"
 "Show me temperature trends across different ecosystems in the past month"
 "Find correlations between flowering patterns and weather data"
 ```
@@ -229,7 +229,7 @@ The server will start on `http://localhost:8000/mcp` and display available tools
 ```
 "I want to detect invasive plant species. What's the best technical approach?"
 "What hardware requirements do I need for real-time AI inference?"
-"Which SAGE nodes would be best for testing a new ecological monitoring plugin?"
+"Which Sage nodes would be best for testing a new ecological monitoring plugin?"
 ```
 
 **Development Support**:
@@ -250,7 +250,7 @@ The server will start on `http://localhost:8000/mcp` and display available tools
 
 **System Health**:
 ```
-"Check the status of all active jobs across the SAGE network"
+"Check the status of all active jobs across the Sage network"
 "Show me nodes that haven't reported data in the last hour"
 "What plugins are currently running on node W083?"
 ```
@@ -350,7 +350,7 @@ Compare data across different environments:
 1. **Install MCP extension** in Cursor
 2. **Configure MCP server** endpoint: `http://localhost:8000/mcp`
 3. **Use in chat interface**:
-   - Ask questions about SAGE data directly in your IDE
+   - Ask questions about Sage data directly in your IDE
    - Get code suggestions for plugin development
    - Debug issues with real-time assistance
 
@@ -368,15 +368,15 @@ MCP: [Generates complete YAML configuration and submission commands]
 ### Claude/ChatGPT Integration
 
 **Through API or web interface**:
-1. Mention you're working with SAGE ecosystem
+1. Mention you're working with Sage ecosystem
 2. Ask specific questions about data, plugins, or deployment
 3. Request code examples, configurations, or analysis
 
 **Example conversation flow**:
 ```
-User: "I'm a researcher studying climate change impacts on flowering plants. How can SAGE help?"
+User: "I'm a researcher studying climate change impacts on flowering plants. How can Sage help?"
 
-MCP: "SAGE offers excellent opportunities for your research! Here's what's available:
+MCP: "Sage offers excellent opportunities for your research! Here's what's available:
 
 🌸 Relevant Data Sources:
 - High-resolution camera data from nature preserves (W06D, W020, W083)
@@ -400,12 +400,12 @@ Would you like me to help you set up a flowering plant detection job?"
 
 **For data analysis workflows**:
 ```python
-# Connect to SAGE MCP from Jupyter
+# Connect to Sage MCP from Jupyter
 import requests
 import pandas as pd
 
 # Query through MCP
-response = requests.post('http://localhost:8000/mcp', 
+response = requests.post('http://localhost:8000/mcp',
                         json={"query": "Get temperature data from W023 last 24 hours"})
 data = response.json()
 
@@ -422,7 +422,7 @@ df.plot()
 
 **Step 1 - Explore Available Data**:
 ```
-"What audio monitoring capabilities does SAGE have?"
+"What audio monitoring capabilities does Sage have?"
 "Show me nodes along known bird migration routes"
 "List plugins for bird sound detection and classification"
 ```
@@ -519,7 +519,7 @@ df.plot()
 
 ### 5. Request Code and Configurations
 ```
-"Generate the complete YAML job configuration and Python analysis code for studying urban heat island effects using SAGE data."
+"Generate the complete YAML job configuration and Python analysis code for studying urban heat island effects using Sage data."
 ```
 
 ## 🛠️ Troubleshooting & Common Issues
@@ -530,7 +530,7 @@ df.plot()
 **Solutions**:
 ```
 "Help me troubleshoot MCP server connection issues"
-"Check if the SAGE API endpoints are accessible"
+"Check if the Sage API endpoints are accessible"
 "Verify my authentication tokens and permissions"
 ```
 
@@ -549,7 +549,7 @@ df.plot()
 **Problem**: Plugin build or deployment failures
 **Solutions**:
 ```
-"Debug this Docker build error in my SAGE plugin"
+"Debug this Docker build error in my Sage plugin"
 "Help me fix this PyWaggle sensor integration issue"
 "Why is my plugin not publishing data to SAGE?"
 ```
@@ -568,8 +568,8 @@ df.plot()
 
 ### Getting Started Tutorials
 ```
-"Give me a beginner's tutorial for SAGE data analysis"
-"Walk me through creating my first SAGE plugin step by step"
+"Give me a beginner's tutorial for Sage data analysis"
+"Walk me through creating my first Sage plugin step by step"
 "Show me examples of successful ecological research using SAGE"
 ```
 
@@ -582,9 +582,9 @@ df.plot()
 
 ### Documentation & References
 ```
-"Where can I find the complete SAGE API documentation?"
-"Show me examples of published research using SAGE data"
-"Get me links to SAGE community forums and support channels"
+"Where can I find the complete Sage API documentation?"
+"Show me examples of published research using Sage data"
+"Get me links to Sage community forums and support channels"
 ```
 
 ## 🚀 What's Next?
@@ -598,12 +598,12 @@ df.plot()
 ### Community Contributions
 - **Share your successful workflows** to help other researchers
 - **Contribute new plugin templates** for common research needs
-- **Participate in SAGE community challenges** and hackathons
+- **Participate in Sage community challenges** and hackathons
 - **Provide feedback** to improve the MCP interface
 
 ### Getting Involved
 ```
-"How can I contribute to the SAGE community?"
+"How can I contribute to the Sage community?"
 "Show me current research opportunities using SAGE"
 "Connect me with other researchers using similar methodologies"
 ```
@@ -612,16 +612,16 @@ df.plot()
 
 ## 📞 Support & Community
 
-- **Documentation**: [SAGE Docs](https://docs.sagecontinuum.org)
-- **Portal**: [SAGE Portal](https://portal.sagecontinuum.org)
-- **Community**: [SAGE Forums](https://github.com/waggle-sensor/waggle/discussions)
+- **Documentation**: [Sage Docs](https://docs.sagecontinuum.org)
+- **Portal**: [Sage Portal](https://portal.sagecontinuum.org)
+- **Community**: [Sage Forums](https://github.com/waggle-sensor/waggle/discussions)
 - **Support**: sage-support@anl.gov
 
-**Ready to revolutionize your research with AI-powered edge sensing? Start exploring SAGE MCP today!** 🌟
+**Ready to revolutionize your research with AI-powered edge sensing? Start exploring Sage MCP today!** 🌟
 
 ## Creating Custom Plugins
 
-The SAGE MCP includes a powerful plugin generation feature that allows you to create new plugins using natural language descriptions. This is accessible through the MCP interface:
+The Sage MCP includes a powerful plugin generation feature that allows you to create new plugins using natural language descriptions. This is accessible through the MCP interface:
 
 ### Using the MCP Interface
 
@@ -681,18 +681,18 @@ The MCP server will provide you with complete deployment instructions when it cr
 cd your-plugin-directory
 sudo pluginctl build .
 
-# Test locally  
+# Test locally
 sudo pluginctl run .
 
-# Deploy to SAGE nodes (through job submission)
+# Deploy to Sage nodes (through job submission)
 # Use the MCP server's job submission tools for deployment
 ```
 
-### Integration with SAGE Ecosystem
+### Integration with Sage Ecosystem
 
 The generated plugins integrate seamlessly with:
 - **PyWaggle**: For sensor data access and publishing
-- **SAGE Infrastructure**: Automatic deployment and scheduling
+- **Sage Infrastructure**: Automatic deployment and scheduling
 - **Edge Code Repository (ECR)**: Plugin sharing and distribution
 - **Job Management**: Through the MCP server's job submission tools
 
@@ -701,4 +701,4 @@ The generated plugins integrate seamlessly with:
 2. Test locally using pluginctl
 3. Submit deployment jobs through the MCP server
 4. Monitor plugin performance and data output
-5. Share successful plugins with the SAGE community
+5. Share successful plugins with the Sage community

@@ -296,7 +296,7 @@ The LoRaWAN Listener is a plugin designed to publish measurements collected from
 
 ### Lorawan Device Profile Templates
 
-[Device Profile Templates](https://www.chirpstack.io/docs/chirpstack/use/device-profile-templates.html#device-profile-templates) simplify the process of onboarding devices to a Node's ChirpStack server. You can create a device template directly through the Node's ChirpStack server UI or by contributing to our [Device Repository](https://github.com/waggle-sensor/wes-lorawan-device-templates?tab=readme-ov-file#waggle-device-repository-for-lorawan). 
+[Device Profile Templates](https://www.chirpstack.io/docs/chirpstack/use/device-profile-templates.html#device-profile-templates) simplify the process of onboarding devices to a Node's ChirpStack server. You can create a device template directly through the Node's ChirpStack server UI or by contributing to our [Device Repository](https://github.com/waggle-sensor/wes-lorawan-device-templates?tab=readme-ov-file#waggle-device-repository-for-lorawan).
 
 The Device Repository is a key resource that contains information about various LoRaWAN end devices, making it easier to catalog and onboard these devices to our Nodes' ChirpStack servers. We encourage you to contribute details about your devices to help other Sage users efficiently connect their devices. Once your device is added to our repository, it becomes available across all Nodes, streamlining the workflow for anyone who wants to connect a similar Lorawan device to a Node.
 
@@ -837,7 +837,7 @@ download_files(df, '/Users/bhupendra/projects/epcape_pier/data/downloaded/nc_pos
 ```
 
 ### More data analysis resources
-- [SAGE Examples](https://github.com/sagecontinuum/sage-data-client/tree/main/examples)
+- [Sage Examples](https://github.com/sagecontinuum/sage-data-client/tree/main/examples)
 - [CROCUS Cookbooks](https://crocus-urban.github.io/instrument-cookbooks/README.html)
 
 
@@ -909,7 +909,7 @@ sidebar_position: 2
 ---
 
 # sesctl: a tool to schedule jobs in Waggle edge computing
-The tool `sesctl` is a command-line tool that communicates with an [Edge scheduler](../about/architecture.md#edge-scheduler-es) in the cloud to manage user jobs. Users can create, edit, submit, suspend, and remove jobs via the tool. 
+The tool `sesctl` is a command-line tool that communicates with an [Edge scheduler](../about/architecture.md#edge-scheduler-es) in the cloud to manage user jobs. Users can create, edit, submit, suspend, and remove jobs via the tool.
 
 ## Installation
 The tool can be downloaded from the [edge scheduler repository](https://github.com/waggle-sensor/edge-scheduler/releases) and be run on person's desktop or laptop.
@@ -996,7 +996,7 @@ _NOTE: not all Waggle nodes have the same set of sensors, and the sensor configu
     <tr>
       <td><a href="https://portal.sagecontinuum.org/sensors/ML1-WS%20IP54">ETS ML1-WS</a></td>
       <td>20-16 kHz microphone recording sound</td>
-      <td rowSpan="5"></td>      
+      <td rowSpan="5"></td>
     </tr>
     <tr>
       <td><a href="https://portal.sagecontinuum.org/sensors/XNV-8080R">XNV-8080R</a></td>
@@ -1055,7 +1055,7 @@ sidebar_position: 4
 
 ![Data Movement](./images/data_movement.svg)
 
-Raw sensor data is collected by edge code. This edge code can either talk to sensor hardware directly or may obtain data from an abstraction layer (not show in image above). Edge code may forward unprocessed sensor data, do light processing to convert raw sensor values into final data products, or may use CPU/GPU-intensive workloads (e.g. AI application) to extract information from data-intensive sensors such as cameras, microphone or LIDAR.  
+Raw sensor data is collected by edge code. This edge code can either talk to sensor hardware directly or may obtain data from an abstraction layer (not show in image above). Edge code may forward unprocessed sensor data, do light processing to convert raw sensor values into final data products, or may use CPU/GPU-intensive workloads (e.g. AI application) to extract information from data-intensive sensors such as cameras, microphone or LIDAR.
 
 Sensor data from nodes that comes in numerical or textual form (e.g. temperature) is stored natively in our time series database. Sensor data in form of large files (images, audio, movies..) is stored in the Waggle object store, but is referenced in the time series data (thus the dashed arrow in the figure above). Thus, the primary way to find all data (sensor and large files) is via the Waggle sensor query API described below.
 
@@ -1187,7 +1187,7 @@ While most Waggle data is open and public - some types of data, such as raw imag
 
 Attempting to download protected files without meeting these criteria will yield a 401 Unauthorized response.
 
-If you've identified protected data you are interested in, please [contact us](/docs/contact-us) so we can help get you access. 
+If you've identified protected data you are interested in, please [contact us](/docs/contact-us) so we can help get you access.
 
 In the case of protected files, you'll need to provide authentication to your tool of choice. These will be your portal username and access token which can be found in the [Access Credentials](https://portal.sagecontinuum.org/account/access) section of the site.
 
@@ -1314,7 +1314,7 @@ sidebar_position: 3
 
 # Submit your job
 
-Are you ready to deploy your plugins to measure the world? We will use [edge scheduler](../about/architecture.md#edge-scheduler-es) to submit a job and demonstrate how you can deploy plugins to field-deployed Waggle nodes. 
+Are you ready to deploy your plugins to measure the world? We will use [edge scheduler](../about/architecture.md#edge-scheduler-es) to submit a job and demonstrate how you can deploy plugins to field-deployed Waggle nodes.
 
 :::caution
 If you have not created your account, please go to [https://portal.sagecontinuum.org](https://portal.sagecontinuum.org) and sign in to create a new account with your email. Once signed in, you will be able to create and edit your jobs, but will need a permission to submit jobs to the scheduler. Please [contact-us](../contact-us.md) to request for the job submission permission.
@@ -1410,10 +1410,10 @@ sesctl stat
 
 You will see the job entry from the response of the command,
 ```bash
-JOB_ID  NAME                         USER       STATUS     AGE     
+JOB_ID  NAME                         USER       STATUS     AGE
 ====================================================================
 ...
-56      myjob                        theone     Created    - 
+56      myjob                        theone     Created    -
 ...
 ```
 
@@ -1448,7 +1448,7 @@ The tool will print details of the job,
 ===== JOB STATUS =====
 Job ID: 56
 Job Name: myjob
-Job Owner: 
+Job Owner:
 Job Status: Submitted
 Job Starttime: 2022-10-10 02:21:37.373437 +0000 UTC
 
@@ -1873,8 +1873,8 @@ Step 5/6 : COPY . .
 ...
 Step 6/6 : ENTRYPOINT ["python3", "main.py"]
 ...
-b38bc0a208d0: Pushed 
-1101ffccd70a: Pushed 
+b38bc0a208d0: Pushed
+1101ffccd70a: Pushed
 latest: digest: sha256:7bee2a62fbcc9913f1c53bbdab79e973e70947618ffe4db90cae6a8f0ff6c8d7 size: 2407
 Successfully built plugin
 
@@ -1895,7 +1895,7 @@ sudo pluginctl run --name app-tutorial 10.31.81.1:5000/local/app-tutorial
 When you run this, you'll see that there's a bug in the code:
 
 ```sh
-Launched the plugin app-tutorial-1659971085 successfully 
+Launched the plugin app-tutorial-1659971085 successfully
 INFO: 2022/08/08 15:04:45 run.go:63: Plugin is in "Pending" state. Waiting...
 
 [ WARN:0@0.032] global /io/opencv/modules/videoio/src/cap_v4l.cpp (902) open VIDEOIO(V4L2:/dev/video0): can't open camera by index
@@ -1930,7 +1930,7 @@ _The specific camera name will depend on your specific node. If you are having p
 After rebuilding and running this again, the plugin should run and exit cleanly:
 
 ```txt
-Launched the plugin app-tutorial-1659971085 successfully 
+Launched the plugin app-tutorial-1659971085 successfully
 INFO: 2022/08/08 15:04:45 run.go:63: Plugin is in "Pending" state. Waiting...
 # should exit cleanly with no output
 ```
