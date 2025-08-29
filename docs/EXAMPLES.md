@@ -1,6 +1,6 @@
-# SAGE MCP Examples
+# Sage MCP Examples
 
-This document provides practical examples of how to interact with the SAGE MCP server using natural language prompts. These examples work with AI assistants like Claude, ChatGPT, or through AI-powered IDEs like Cursor.
+This document provides practical examples of how to interact with the Sage MCP server using natural language prompts. These examples work with AI assistants like Claude, ChatGPT, or through AI-powered IDEs like Cursor.
 
 ## Temperature and Environmental Data
 
@@ -35,7 +35,7 @@ This document provides practical examples of how to interact with the SAGE MCP s
 ## Node Information and Discovery
 
 ```
-"List all available SAGE nodes and their current status"
+"List all available Sage nodes and their current status"
 
 "Find nodes in Chicago area"
 
@@ -97,7 +97,7 @@ This document provides practical examples of how to interact with the SAGE MCP s
 
 "Deploy air quality monitoring to urban nodes"
 
-"Show me all active jobs currently running across the SAGE network"
+"Show me all active jobs currently running across the Sage network"
 ```
 
 ## Advanced Analysis Examples
@@ -109,7 +109,7 @@ This document provides practical examples of how to interact with the SAGE MCP s
 
 "Calculate average atmospheric pressure across all Midwest nodes"
 
-"Compare air quality between urban and rural SAGE nodes"
+"Compare air quality between urban and rural Sage nodes"
 
 "Show me rainfall data from all nodes in the last 48 hours"
 ```
@@ -154,7 +154,6 @@ This document provides practical examples of how to interact with the SAGE MCP s
 
 ## Support
 
-- **Documentation**: [SAGE Docs](https://docs.sagecontinuum.org)
-- **Portal**: [SAGE Portal](https://portal.sagecontinuum.org)
-- **Community**: [SAGE Forums](https://github.com/waggle-sensor/waggle/discussions)
-- **Support**: sage-support@anl.gov
+- [Sage Documentation](https://sagecontinuum.org/docs/getting-started)
+- [Sage Portal](https://portal.sagecontinuum.org)
+- [Contact Us](https://sagecontinuum.org/docs/contact-us)

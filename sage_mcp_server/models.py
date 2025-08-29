@@ -3,12 +3,12 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
 class SageConfig(BaseModel):
-    """Configuration settings for SAGE interactions"""
-    token: str = Field(default="your-access-token-here", 
-                       description="SAGE API token for authentication")
-    server: str = Field(default="https://es.sagecontinuum.org", 
-                       description="SAGE server URL")
-    dry_run: bool = Field(default=False, 
+    """Configuration settings for Sage interactions"""
+    token: str = Field(default="your-access-token-here",
+                       description="Sage API token for authentication")
+    server: str = Field(default="https://es.sagecontinuum.org",
+                       description="Sage server URL")
+    dry_run: bool = Field(default=False,
                          description="If True, validate but don't submit jobs")
 
     class Config:
@@ -17,7 +17,7 @@ class SageConfig(BaseModel):
 class TimeRange(BaseModel):
     """Model for time range specifications"""
     value: str
-    
+
     @validator('value')
     def validate_time_range(cls, v: str) -> str:
         if not v or v.strip() == "" or v.lower() in ['latest', 'recent', 'current', 'now']:
@@ -27,9 +27,9 @@ class TimeRange(BaseModel):
         return self.value
 
 class NodeID(BaseModel):
-    """Model for SAGE node identifiers"""
+    """Model for Sage node identifiers"""
     value: str
-    
+
     @validator('value')
     def normalize_node_id(cls, v: str) -> str:
         if not v:
@@ -51,11 +51,11 @@ class DataType(str, Enum):
     IIO_HUMIDITY = "iio.in_humidityrelative_input"
     IIO_PRESSURE = "iio.in_pressure_input"
     IIO_RESISTANCE = "iio.in_resistance_input"
-    
+
     @classmethod
     def environmental_types(cls) -> List[str]:
         return [cls.TEMPERATURE.value, cls.HUMIDITY.value, cls.PRESSURE.value]
-    
+
     @classmethod
     def iio_types(cls) -> List[str]:
         return [
@@ -69,7 +69,7 @@ class SelectorRequirements(BaseModel):
     camera: Optional[bool] = Field(None, description="Require camera")
     usb: Optional[bool] = Field(None, description="Require USB")
     custom_selectors: Dict[str, str] = Field(default_factory=dict, description="Custom selector requirements")
-    
+
     def to_dict(self) -> Dict[str, str]:
         result = {}
         if self.gpu:
@@ -80,7 +80,7 @@ class SelectorRequirements(BaseModel):
             result["resource.usb"] = "true"
         result.update(self.custom_selectors)
         return result
-    
+
     @classmethod
     def from_json_str(cls, json_str: str) -> 'SelectorRequirements':
         if not json_str:
@@ -98,7 +98,7 @@ class SelectorRequirements(BaseModel):
 class PluginArguments(BaseModel):
     """Model for plugin arguments"""
     args_dict: Dict[str, Any] = Field(default_factory=dict)
-    
+
     @classmethod
     def from_string(cls, args_str: str) -> 'PluginArguments':
         if not args_str:
@@ -113,7 +113,7 @@ class PluginArguments(BaseModel):
                     key, value = arg.split("=", 1)
                     args_dict[key.strip()] = value.strip()
         return cls(args_dict=args_dict)
-    
+
     def to_cli_args(self) -> List[str]:
         args_list = []
         for key, value in self.args_dict.items():
@@ -129,7 +129,7 @@ class PluginSpec(BaseModel):
     privileged: bool = Field(default=False, description="Run in privileged mode")
     entrypoint: Optional[str] = Field(default=None, description="Custom entrypoint")
     env: Dict[str, str] = Field(default_factory=dict, description="Environment variables")
-    
+
     def to_dict(self) -> Dict[str, Any]:
         plugin_spec = {
                 "image": self.image,
@@ -155,14 +155,14 @@ class PluginSpec(BaseModel):
         }
 
 class SageJob(BaseModel):
-    """Model for SAGE job definitions"""
+    """Model for Sage job definitions"""
     name: str
     nodes: List[str]
     plugins: List[PluginSpec]
     science_rules: List[str] = Field(default_factory=list)
     node_value_format: str = "null"
     success_criteria: List[str] = Field(default_factory=list)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         if self.node_value_format == "true":
             nodes_dict = {node: True for node in self.nodes}
@@ -200,4 +200,4 @@ class CameraSageJob(SageJob):
     def save_yaml(self, file_path: str) -> None:
         import yaml
         with open(file_path, 'w') as f:
-            yaml.dump(self.to_dict(), f, default_flow_style=False) 
+            yaml.dump(self.to_dict(), f, default_flow_style=False)

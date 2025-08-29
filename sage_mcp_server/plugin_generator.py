@@ -22,7 +22,7 @@ class PluginTemplate(BaseModel):
     description: str
     keywords: List[str] = Field(default_factory=list)
     version: str = "1.0.0"
-    authors: List[str] = Field(default_factory=lambda: ["SAGE Team"])
+    authors: List[str] = Field(default_factory=lambda: ["Sage Team"])
     license: str = "MIT"
     requirements: PluginRequirements
     inputs: Dict[str, Dict[str, str]] = Field(default_factory=dict)
@@ -30,8 +30,8 @@ class PluginTemplate(BaseModel):
     science_description: str = ""
 
 class PluginGenerator:
-    """Generator for SAGE plugins"""
-    
+    """Generator for Sage plugins"""
+
     def __init__(self):
         self.base_dir = Path.cwd()
 
@@ -40,12 +40,12 @@ class PluginGenerator:
         # Create plugin directory
         plugin_dir = self.base_dir / template.name.lower().replace(" ", "-")
         plugin_dir.mkdir(exist_ok=True)
-        
+
         # Create required directories
         (plugin_dir / "utils").mkdir(exist_ok=True)
         (plugin_dir / "models").mkdir(exist_ok=True)
         (plugin_dir / "ecr-meta").mkdir(exist_ok=True)
-        
+
         # Generate all plugin files
         self._write_file(plugin_dir / "requirements.txt", self.generate_requirements(template))
         self._write_file(plugin_dir / "Dockerfile", self.generate_dockerfile(template))
@@ -54,10 +54,10 @@ class PluginGenerator:
         self._write_file(plugin_dir / "ecr-meta/ecr-science-description.md", self.generate_science_description(template))
         self._write_file(plugin_dir / "main.py", self.generate_main_code(template))
         self._write_file(plugin_dir / "utils/__init__.py", "")
-        
+
         # Make main.py executable
         (plugin_dir / "main.py").chmod(0o755)
-        
+
         return plugin_dir
 
     def _write_file(self, path: Path, content: str) -> None:
@@ -68,53 +68,53 @@ class PluginGenerator:
     def generate_requirements(self, template: PluginTemplate) -> str:
         """Generate requirements.txt content"""
         reqs = ["pywaggle[all]>=0.55.0"]
-        
+
         # Add core dependencies based on requirements
         if template.requirements.camera:
             reqs.extend([
                 "opencv-python>=4.8.0",
                 "numpy>=1.24.0"
             ])
-        
+
         if template.requirements.gpu:
             reqs.extend([
                 "torch>=2.0.0",
                 "torchvision>=0.15.0"
             ])
-            
+
         if template.requirements.audio:
             reqs.extend([
                 "librosa>=0.10.0",
                 "sounddevice>=0.4.6"
             ])
-        
+
         # Add custom packages
         reqs.extend(template.requirements.python_packages)
-        
+
         return "\n".join(sorted(set(reqs)))
 
     def generate_dockerfile(self, template: PluginTemplate) -> str:
         """Generate Dockerfile content"""
         gpu_base = "waggle/plugin-base:1.1.1-cuda" if template.requirements.gpu else "waggle/plugin-base:1.1.1-ml"
-        
+
         dockerfile = [
             f"FROM {gpu_base}",
             "",
             "# Install system dependencies",
             "RUN apt-get update && apt-get install -y \\"
         ]
-        
+
         # Add required system packages
         sys_packages = template.requirements.system_packages
         if template.requirements.camera:
             sys_packages.extend(["libgl1-mesa-glx", "libglib2.0-0"])
         if template.requirements.audio:
             sys_packages.extend(["libsndfile1", "portaudio19-dev"])
-        
+
         if sys_packages:
             dockerfile.extend([f"    {pkg} \\" for pkg in sys_packages])
             dockerfile.append("    && rm -rf /var/lib/apt/lists/*")
-        
+
         dockerfile.extend([
             "",
             "# Set working directory",
@@ -137,7 +137,7 @@ class PluginGenerator:
             "# Set entrypoint",
             'ENTRYPOINT ["python3", "main.py"]'
         ])
-        
+
         return "\n".join(dockerfile)
 
     def generate_sage_yaml(self, template: PluginTemplate) -> str:
@@ -181,7 +181,7 @@ class PluginGenerator:
             "# PyWaggle imports",
             "import waggle.plugin as plugin",
         ]
-        
+
         # Add conditional imports based on requirements
         if template.requirements.camera:
             imports.extend([
@@ -189,22 +189,22 @@ class PluginGenerator:
                 "import numpy as np",
                 "from waggle.data.vision import Camera"
             ])
-        
+
         if template.requirements.environmental_sensors:
             imports.append("from waggle.data.sensors import get_sensor_data")
-            
+
         if template.requirements.audio:
             imports.extend([
                 "import sounddevice as sd",
                 "import librosa"
             ])
-            
+
         if template.requirements.gpu:
             imports.extend([
                 "import torch",
                 "import torchvision"
             ])
-        
+
         # Add logging configuration
         logging_setup = [
             "",
@@ -216,13 +216,13 @@ class PluginGenerator:
             "logger = logging.getLogger(__name__)",
             ""
         ]
-        
+
         # Generate argument parser
         args_parser = [
             "def main():",
             f"    parser = argparse.ArgumentParser(description='{template.description}')"
         ]
-        
+
         # Add input arguments
         for name, details in template.inputs.items():
             arg_type = details.get("type", "str")
@@ -233,7 +233,7 @@ class PluginGenerator:
             if default:
                 args_parser.append(f"                      default={default},")
             args_parser.append(f"                      help='{description}')")
-        
+
         # Add main loop
         main_loop = [
             "",
@@ -243,7 +243,7 @@ class PluginGenerator:
             "    plugin.init()",
             ""
         ]
-        
+
         # Add resource initialization based on requirements
         init_code = []
         if template.requirements.camera:
@@ -252,7 +252,7 @@ class PluginGenerator:
                 "    camera = Camera()",
                 ""
             ])
-            
+
         # Add main processing loop
         processing_loop = [
             "    try:",
@@ -275,7 +275,7 @@ class PluginGenerator:
             "if __name__ == '__main__':",
             "    main()"
         ]
-        
+
         # Combine all sections
         return "\n".join(imports + logging_setup + args_parser + main_loop + init_code + processing_loop)
 
@@ -291,9 +291,9 @@ class PluginGenerator:
         if template.requirements.audio:
             hw_reqs.append("- Audio input")
         hw_reqs.extend([f"- {hw}" for hw in template.requirements.custom_hardware])
-        
+
         sw_reqs = [f"- {pkg}" for pkg in template.requirements.python_packages]
-        
+
         inputs_doc = []
         for name, details in template.inputs.items():
             inputs_doc.extend([
@@ -302,7 +302,7 @@ class PluginGenerator:
                 f"Default: `{details.get('default', 'None')}`",
                 ""
             ])
-            
+
         outputs_doc = []
         for name, details in template.outputs.items():
             outputs_doc.extend([
@@ -310,7 +310,7 @@ class PluginGenerator:
                 details.get('description', ''),
                 ""
             ])
-        
+
         readme = f"""# {template.name}
 
 {template.description}
@@ -356,7 +356,7 @@ pluginctl build .
 pluginctl run .
 ```
 
-3. Deploy to SAGE nodes:
+3. Deploy to Sage nodes:
 ```bash
 pluginctl deploy .
 ```
@@ -376,7 +376,7 @@ Data is stored in `/data/` with appropriate subdirectories based on the data typ
 ## License
 
 {template.license}"""
-        
+
         return readme
 
     def generate_science_description(self, template: PluginTemplate) -> str:
@@ -391,13 +391,13 @@ Data is stored in `/data/` with appropriate subdirectories based on the data typ
         if template.requirements.audio:
             hw_reqs.append("- Audio input required")
         hw_reqs.extend([f"- {hw}" for hw in template.requirements.custom_hardware])
-        
-        measurements = [f"- {name}: {details['description']}" 
+
+        measurements = [f"- {name}: {details['description']}"
                        for name, details in template.outputs.items()]
-        
-        config = [f"- {name}: {details['description']}" 
+
+        config = [f"- {name}: {details['description']}"
                  for name, details in template.inputs.items()]
-        
+
         return f"""# {template.name}
 
 ## Overview
@@ -426,6 +426,6 @@ The plugin stores data in appropriate subdirectories under `/data/` based on the
 ### Performance Considerations
 
 - Optimized for edge deployment
-- Automatic data publishing to SAGE data pipeline
+- Automatic data publishing to Sage data pipeline
 - Resource usage monitored and managed
-""" 
+"""

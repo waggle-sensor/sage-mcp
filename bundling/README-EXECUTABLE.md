@@ -1,6 +1,6 @@
-# SAGE MCP Server Executable
+# Sage MCP Server Executable
 
-This is a standalone executable of the SAGE MCP (Model Context Protocol) Server.
+This is a standalone executable of the Sage MCP (Model Context Protocol) Server.
 
 ## Quick Start
 
@@ -18,8 +18,8 @@ Once started, the server will be available at:
 - **HTTP**: http://localhost:8000/mcp
 
 The server provides tools for:
-- Querying SAGE sensor data
-- Submitting and managing jobs on SAGE nodes
+- Querying Sage sensor data
+- Submitting and managing jobs on Sage nodes
 - Accessing documentation and help
 - Finding and working with plugins
 
@@ -57,10 +57,10 @@ If you encounter issues:
 ## System Requirements
 
 - No Python installation required (executable is self-contained)
-- Internet connection for accessing SAGE data
+- Internet connection for accessing Sage data
 - Available port (default 8000)
 
 ## Source Code
 
-This executable was built from the SAGE MCP Server source code.
+This executable was built from the Sage MCP Server source code.
 Visit the repository for the latest updates and documentation.

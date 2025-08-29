@@ -1,10 +1,10 @@
 #!/bin/bash
-# Build script for SAGE MCP executable on macOS
+# Build script for Sage MCP executable on macOS
 # This script provides a convenient wrapper around the Python build script
 
 set -e  # Exit on any error
 
-echo "🚀 SAGE MCP Executable Builder for macOS"
+echo "🚀 Sage MCP Executable Builder for macOS"
 echo "========================================"
 echo "🍎 Detected macOS system"
 
@@ -42,14 +42,14 @@ if [ -f "bundling/dist/sage_mcp" ]; then
     echo "📍 Executable location: $(pwd)/bundling/dist/sage_mcp"
     echo ""
     echo "🧪 Testing executable startup (will timeout after 5 seconds)..."
-    
+
     # Test the executable with a timeout
     if timeout 5s ./bundling/dist/sage_mcp 2>/dev/null || [ $? -eq 124 ]; then
         echo "✅ Executable appears to be working (server started successfully)"
     else
         echo "⚠️  Executable test inconclusive, but file exists"
     fi
-    
+
     echo ""
     echo "💡 To run the server:"
     echo "   ./bundling/dist/sage_mcp"
@@ -59,8 +59,8 @@ if [ -f "bundling/dist/sage_mcp" ]; then
     echo ""
     echo "🌐 Once running, the server will be available at:"
     echo "   http://localhost:8000/mcp"
-    
+
 else
     echo "❌ Build failed - executable not found"
     exit 1
-fi 
+fi

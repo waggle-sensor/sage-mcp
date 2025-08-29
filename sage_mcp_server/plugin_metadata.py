@@ -51,7 +51,7 @@ class PluginMetadata(BaseModel):
     def get_full_name(self) -> str:
         """Get the full plugin name including namespace"""
         return f"{self.namespace}/{self.name}:{self.version}"
-    
+
     def get_search_text(self) -> str:
         """Get concatenated text for semantic search including science description content"""
         return " ".join(filter(None, [
@@ -61,7 +61,7 @@ class PluginMetadata(BaseModel):
             self.science_description_content,
             " ".join(str(v) for v in self.metadata.values() if v)
         ]))
-    
+
     def get_input_schema(self) -> Dict[str, Any]:
         """Get schema of plugin inputs"""
         return {
@@ -71,7 +71,7 @@ class PluginMetadata(BaseModel):
             }
             for input_param in self.inputs
         }
-    
+
     def matches_query(self, query: str) -> bool:
         """Check if plugin matches a search query"""
         query = query.lower()
@@ -87,25 +87,25 @@ class PluginMetadata(BaseModel):
 
 class PluginRegistry:
     """Registry for managing plugin metadata and search"""
-    
+
     def __init__(self):
         self.plugins: Dict[str, PluginMetadata] = {}
         self.science_description_cache: Dict[str, str] = {}  # Cache for fetched science descriptions
         self.refresh_cache()
-    
+
     def _fetch_science_description(self, science_description_path: str) -> str:
         """Fetch science description content from ECR"""
         if not science_description_path:
             return ""
-            
+
         # Check cache first
         if science_description_path in self.science_description_cache:
             return self.science_description_cache[science_description_path]
-        
+
         try:
             url = f"{ECR_META_FILES_URL}/{science_description_path}"
             logger.info(f"Fetching science description from: {url}")
-            
+
             response = requests.get(url, timeout=10)
             if response.status_code == 200:
                 content = response.text
@@ -119,16 +119,16 @@ class PluginRegistry:
         except Exception as e:
             logger.warning(f"Error fetching science description from {science_description_path}: {e}")
             return ""
-    
+
     def refresh_cache(self) -> None:
-        """Refresh the plugin metadata cache from the SAGE API"""
+        """Refresh the plugin metadata cache from the Sage API"""
         try:
             logger.info(f"Fetching plugins from {SAGE_PLUGINS_URL}")
             response = requests.get(SAGE_PLUGINS_URL, timeout=30)
             if response.status_code == 200:
                 plugins_data = response.json().get("data", [])
                 logger.info(f"Found {len(plugins_data)} plugins in ECR")
-                
+
                 for plugin_data in plugins_data:
                     try:
                         # Parse basic plugin metadata with proper None handling
@@ -150,7 +150,7 @@ class PluginRegistry:
                             time_created=self._parse_datetime(plugin_data.get("time_created")),
                             time_last_updated=self._parse_datetime(plugin_data.get("time_last_updated"))
                         )
-                        
+
                         # Parse source information if available
                         if "source" in plugin_data and plugin_data["source"]:
                             source_data = plugin_data["source"]
@@ -164,27 +164,27 @@ class PluginRegistry:
                                 tag=source_data.get("tag") or "",
                                 url=source_data.get("url") or ""
                             )
-                        
+
                         # Fetch science description content if available
                         if plugin.science_description:
                             plugin.science_description_content = self._fetch_science_description(
                                 plugin.science_description
                             )
-                        
+
                         if plugin.id:  # Only add if we have a valid ID
                             self.plugins[plugin.id] = plugin
                             logger.debug(f"Cached plugin: {plugin.id}")
-                            
+
                     except Exception as e:
                         logger.warning(f"Error parsing plugin data: {e}")
                         continue
-                        
+
                 logger.info(f"Successfully cached {len(self.plugins)} plugins with science descriptions")
             else:
                 logger.error(f"Failed to fetch plugins: {response.status_code}")
         except Exception as e:
             logger.error(f"Error refreshing plugin cache: {e}")
-    
+
     def _parse_datetime(self, dt_string: Optional[str]) -> Optional[datetime]:
         """Parse datetime string from ECR API"""
         if not dt_string:
@@ -193,43 +193,43 @@ class PluginRegistry:
             return datetime.fromisoformat(dt_string.replace('Z', '+00:00'))
         except Exception:
             return None
-    
+
     def search_plugins(self, query: str, max_results: int = 10) -> List[PluginMetadata]:
         """Search for plugins matching a query with improved scoring"""
         query_lower = query.lower()
         query_words = query_lower.split()
-        
+
         scored_plugins = []
-        
+
         for plugin in self.plugins.values():
             score = 0
             search_text = plugin.get_search_text().lower()
-            
+
             # Exact name match gets highest score
             if query_lower == plugin.name.lower():
                 score += 100
-            
+
             # Partial name match
             if query_lower in plugin.name.lower():
                 score += 50
-            
+
             # Description match
             if query_lower in plugin.description.lower():
                 score += 30
-            
+
             # Keywords match
             if plugin.keywords and query_lower in plugin.keywords.lower():
                 score += 40
-            
+
             # Science description content match
             if plugin.science_description_content and query_lower in plugin.science_description_content.lower():
                 score += 25
-            
+
             # Word-by-word matching
             for word in query_words:
                 if word in search_text:
                     score += 10
-            
+
             # Category-based scoring
             category_keywords = {
                 "camera": ["camera", "image", "video", "ptz", "pan", "tilt", "zoom"],
@@ -238,34 +238,34 @@ class PluginRegistry:
                 "environmental": ["temperature", "humidity", "pressure", "weather"],
                 "movement": ["motion", "tracking", "movement"]
             }
-            
+
             for category, keywords in category_keywords.items():
                 if any(kw in query_lower for kw in keywords):
                     if any(kw in search_text for kw in keywords):
                         score += 20
-            
+
             if score > 0:
                 scored_plugins.append((plugin, score))
-        
+
         # Sort by score (descending) and return top results
         scored_plugins.sort(key=lambda x: x[1], reverse=True)
         return [plugin for plugin, score in scored_plugins[:max_results]]
-    
+
     def get_plugin_by_id(self, plugin_id: str) -> Optional[PluginMetadata]:
         """Get plugin metadata by ID"""
         return self.plugins.get(plugin_id)
-    
+
     def get_plugins_by_type(self, plugin_type: str) -> List[PluginMetadata]:
         """Get plugins of a specific type/category"""
-        return [p for p in self.plugins.values() 
+        return [p for p in self.plugins.values()
                 if plugin_type.lower() in p.keywords.lower() if p.keywords]
-    
+
     def get_data_query_info(self, plugin_id: str) -> Dict[str, Any]:
         """Get information about how to query data from a plugin"""
         plugin = self.get_plugin_by_id(plugin_id)
         if not plugin:
             return {}
-            
+
         # Extract query parameters from metadata
         query_info = {
             "plugin_name": plugin.name,
@@ -279,4 +279,4 @@ class PluginRegistry:
         return query_info
 
 # Initialize global registry
-plugin_registry = PluginRegistry() 
+plugin_registry = PluginRegistry()

@@ -1,10 +1,10 @@
 #!/bin/bash
-# Build script for SAGE MCP executable on Linux
+# Build script for Sage MCP executable on Linux
 # This script provides a convenient wrapper around the Python build script
 
 set -e  # Exit on any error
 
-echo "🚀 SAGE MCP Executable Builder for Linux"
+echo "🚀 Sage MCP Executable Builder for Linux"
 echo "========================================="
 
 # Detect Linux distribution
@@ -109,14 +109,14 @@ if [ -f "bundling/dist/sage_mcp" ]; then
     echo "📍 Executable location: $(pwd)/bundling/dist/sage_mcp"
     echo ""
     echo "🧪 Testing executable startup (will timeout after 5 seconds)..."
-    
+
     # Test the executable with a timeout
     if timeout 5s ./bundling/dist/sage_mcp --help 2>/dev/null || [ $? -eq 124 ]; then
         echo "✅ Executable appears to be working (server started successfully)"
     else
         echo "⚠️  Executable test inconclusive, but file exists"
     fi
-    
+
     # Check if executable is properly linked
     echo "🔍 Checking executable dependencies..."
     if command -v ldd &> /dev/null; then
@@ -124,7 +124,7 @@ if [ -f "bundling/dist/sage_mcp" ]; then
         ldd bundling/dist/sage_mcp | head -5
         echo "   ... (showing first 5 dependencies)"
     fi
-    
+
     echo ""
     echo "💡 To run the server:"
     echo "   ./bundling/dist/sage_mcp"
@@ -138,8 +138,8 @@ if [ -f "bundling/dist/sage_mcp" ]; then
     echo ""
     echo "🌐 Once running, the server will be available at:"
     echo "   http://localhost:8000/mcp"
-    
+
 else
     echo "❌ Build failed - executable not found"
     exit 1
-fi 
+fi

@@ -1,10 +1,10 @@
-# SAGE MCP Server
+# Sage MCP Server
 
-A Model Context Protocol (MCP) server for interacting with the SAGE (Software-Defined Sensor Network) platform. This server provides tools, resources, and prompts for querying sensor data, submitting jobs, and managing SAGE nodes.
+A Model Context Protocol (MCP) server for interacting with the Sage (Software-Defined Sensor Network) platform. This server provides tools, resources, and prompts for querying sensor data, submitting jobs, and managing Sage nodes.
 
 ## Quick Setup with Cursor IDE
 
-The easiest way to use SAGE MCP is through Cursor IDE with our hosted server:
+The easiest way to use Sage MCP is through Cursor IDE with our hosted server:
 
 ### 1. Configure Cursor MCP
 
@@ -23,17 +23,17 @@ Add this to your Cursor MCP configuration file (`~/.cursor/mcp.json`):
 }
 ```
 
-### 2. Get Your SAGE Credentials
+### 2. Get Your Sage Credentials
 
-1. Visit [SAGE Portal Access Credentials](https://portal.sagecontinuum.org/account/access)
-2. Sign in with your SAGE account
+1. Visit [Sage Portal Access Credentials](https://portal.sagecontinuum.org/account/access)
+2. Sign in with your Sage account
 3. Copy your access token
-4. Replace `{username}` with your SAGE username
+4. Replace `{username}` with your Sage username
 5. Replace `{auth_token}` with your access token
 
-### 3. Start Using SAGE MCP
+### 3. Start Using Sage MCP
 
-Once configured, you can ask Cursor natural language questions about SAGE data:
+Once configured, you can ask Cursor natural language questions about Sage data:
 
 ```
 "Show me temperature readings from node W023 in the last hour"
@@ -45,10 +45,10 @@ See the [Examples Guide](docs/EXAMPLES.md) for more query examples.
 
 ## Features
 
-- **Sensor Data Queries**: Access environmental, IIO, and other sensor data from SAGE nodes
+- **Sensor Data Queries**: Access environmental, IIO, and other sensor data from Sage nodes
 - **Job Management**: Submit, monitor, and manage edge computing jobs
-- **Plugin System**: Work with SAGE plugins and edge applications  
-- **Documentation**: Built-in SAGE documentation and FAQ system
+- **Plugin System**: Work with Sage plugins and edge applications
+- **Documentation**: Built-in Sage documentation and FAQ system
 - **Authentication Support**: Support for protected data access with user tokens
 - **Natural Language Queries**: Query data using natural language descriptions
 
@@ -64,7 +64,7 @@ Comprehensive documentation is available in the `docs/` folder:
 
 ## Authentication
 
-The server supports authentication for accessing protected SAGE data through **HTTP headers and query parameters only**.
+The server supports authentication for accessing protected Sage data through **HTTP headers and query parameters only**.
 
 ### Token Format
 For protected data access, use the format: `username:access_token`
@@ -97,11 +97,11 @@ curl "http://localhost:8000/mcp/...?token=username:token"
 ```
 
 ### Getting Your Access Token
-1. Visit [SAGE Portal Access Credentials](https://portal.sagecontinuum.org/account/access)
-2. Sign in with your SAGE account
+1. Visit [Sage Portal Access Credentials](https://portal.sagecontinuum.org/account/access)
+2. Sign in with your Sage account
 3. Copy your access token from the credentials section
 4. For protected data, ensure you have:
-   - A valid SAGE account
+   - A valid Sage account
    - Signed the Data Use Agreement
    - Appropriate permissions for the data you're accessing
 
@@ -112,7 +112,7 @@ For protected data access, ensure you have:
 
 ## Image Proxy
 
-The server includes an image proxy endpoint that allows authenticated access to SAGE images:
+The server includes an image proxy endpoint that allows authenticated access to Sage images:
 
 ### HTTP Endpoint
 ```
@@ -120,7 +120,7 @@ GET /proxy/image?url=<encoded_sage_url>&token=<optional_token>
 ```
 
 ### Authentication Methods (in priority order)
-1. **Environment Variables** (recommended - like the SAGE Python examples):
+1. **Environment Variables** (recommended - like the Sage Python examples):
    ```bash
    export SAGE_USER=your_username
    export SAGE_PASS=your_password
@@ -139,13 +139,13 @@ GET /proxy/image?url=<encoded_sage_url>&token=<optional_token>
 ### MCP Tool
 Use the `get_image_proxy_url()` tool to generate proxy URLs:
 ```python
-# Get a proxy URL for a SAGE image
+# Get a proxy URL for a Sage image
 proxy_url = get_image_proxy_url("https://storage.sagecontinuum.org/api/v1/data/sage/...")
 ```
 
 ### Features
 - **Multiple Auth Methods**: Environment variables, username:password tokens, or Bearer tokens
-- **Security**: Only allows SAGE storage URLs
+- **Security**: Only allows Sage storage URLs
 - **Caching**: Images are cached for 1 hour for better performance
 - **Error Handling**: Proper HTTP status codes for authentication and access errors
 
@@ -193,7 +193,7 @@ python sage_mcp.py
 ## Available Tools
 
 ### Authentication Tools
-- `set_authentication_token(username, token)` - Set your SAGE authentication credentials (per-session)
+- `set_authentication_token(username, token)` - Set your Sage authentication credentials (per-session)
 - `set_authentication_token_legacy(token)` - Set token in legacy format (deprecated)
 - `get_authentication_status()` - Check if an authentication token is set for this session
 - `list_active_sessions()` - List all active authenticated sessions (admin/debug tool)
@@ -206,10 +206,10 @@ python sage_mcp.py
 - `get_temperature_summary(time_range, sensor_type)` - Get temperature summary
 - `search_measurements(pattern, node_id, time_range)` - Search for measurements
 
-### Node Information Tools  
-- `list_available_nodes(time_range)` - List active SAGE nodes
+### Node Information Tools
+- `list_available_nodes(time_range)` - List active Sage nodes
 - `get_node_info(node_id)` - Get detailed node information
-- `list_all_nodes()` - List all SAGE nodes
+- `list_all_nodes()` - List all Sage nodes
 - `get_sensor_details(sensor_type)` - Get sensor specifications
 
 ### Job Management Tools
@@ -230,10 +230,10 @@ python sage_mcp.py
 ### Image and Cloud Data Tools
 - `get_cloud_images(time_range, node_id)` - Get cloud/sky images
 - `get_image_data(time_range, node_id, plugin_pattern)` - Get image data
-- `get_image_proxy_url(sage_url)` - Get a proxy URL for accessing SAGE images with authentication
+- `get_image_proxy_url(sage_url)` - Get a proxy URL for accessing Sage images with authentication
 
 ### Documentation Tools
-- `ask_sage_docs(question)` - Ask questions about SAGE documentation
+- `ask_sage_docs(question)` - Ask questions about Sage documentation
 - `sage_faq(topic)` - Get FAQ answers
 - `search_sage_docs(query)` - Search documentation
 
@@ -257,19 +257,19 @@ See [DOCKER_DEPLOY.md](docs/DOCKER_DEPLOY.md) for containerized deployment instr
 
 The server is built using:
 - [FastMCP](https://github.com/jlowin/fastmcp) - MCP server framework
-- [sage-data-client](https://github.com/sagecontinuum/sage-data-client) - SAGE data access
+- [sage-data-client](https://github.com/sagecontinuum/sage-data-client) - Sage data access
 - [pandas](https://pandas.pydata.org/) - Data processing
 
 ## Extending with Custom Functions
 
-Want to add your own custom MCP tools to the SAGE server? You can easily fork this repository and add custom endpoints:
+Want to add your own custom MCP tools to the Sage server? You can easily fork this repository and add custom endpoints:
 
 ```python
 @mcp.tool()
 def my_custom_analysis(data_query: str, analysis_type: str = "basic") -> str:
-    """Perform custom analysis on SAGE data"""
+    """Perform custom analysis on Sage data"""
     # Your custom logic here
-    # Access SAGE data using the existing data_service
+    # Access Sage data using the existing data_service
     # Return formatted results
     return "Analysis results..."
 ```
@@ -287,10 +287,10 @@ python tests/test_auth.py
 # Test dependencies
 python tests/test_dependencies.py
 
-# Test image proxy functionality  
+# Test image proxy functionality
 python tests/test_image_proxy.py
 
-# Test SAGE authentication
+# Test Sage authentication
 python tests/test_sage_auth.py
 
 # Run server tests
@@ -301,4 +301,4 @@ The authentication test will verify all supported authentication methods (header
 
 ## License
 
-This project is licensed under the MIT License. 
+This project is licensed under the MIT License.

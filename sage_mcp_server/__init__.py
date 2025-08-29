@@ -1,12 +1,12 @@
 """
-SAGE MCP Server Package
+Sage MCP Server Package
 
-This package contains the core components for the SAGE MCP (Model Context Protocol) server.
+This package contains the core components for the Sage MCP (Model Context Protocol) server.
 """
 
 # Core data models
 from .models import (
-    SageConfig, TimeRange, NodeID, DataType, SelectorRequirements, 
+    SageConfig, TimeRange, NodeID, DataType, SelectorRequirements,
     PluginArguments, PluginSpec, SageJob, CameraSageJob
 )
 
@@ -36,8 +36,8 @@ __all__ = [
     # Services
     "SageDataService", "SageJobService", "SAGEDocsHelper",
     # Plugin system
-    "plugin_registry", "plugin_query_service", "PluginTemplate", 
+    "plugin_registry", "plugin_query_service", "PluginTemplate",
     "PluginRequirements", "PluginGenerator",
     # Templates
     "JobTemplates",
-] 
+]

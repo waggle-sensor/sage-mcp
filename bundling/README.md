@@ -1,6 +1,6 @@
-# SAGE MCP Cross-Platform Executable Bundling
+# Sage MCP Cross-Platform Executable Bundling
 
-This directory contains all files related to creating standalone executable versions of the SAGE MCP server using PyInstaller for **Windows**, **macOS**, and **Linux**.
+This directory contains all files related to creating standalone executable versions of the Sage MCP server using PyInstaller for **Windows**, **macOS**, and **Linux**.
 
 ## Files Overview
 
@@ -11,7 +11,7 @@ This directory contains all files related to creating standalone executable vers
 
 ### Platform-Specific Scripts
 - `build.sh` - macOS build script wrapper 🍎
-- `build_linux.sh` - Linux build script wrapper 🐧  
+- `build_linux.sh` - Linux build script wrapper 🐧
 - `build.bat` - Windows build script wrapper 🪟
 
 ### PyInstaller Hooks
@@ -97,4 +97,4 @@ For runtime issues with the executable:
 1. Test that the regular Python script works: `python ../sage_mcp.py`
 2. Check environment variables are set correctly
 3. Ensure network ports are available
-4. Run with verbose output to debug startup issues 
+4. Run with verbose output to debug startup issues

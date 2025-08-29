@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Dependency Test Script for SAGE MCP Server
+Dependency Test Script for Sage MCP Server
 
 This script verifies that all required dependencies are properly installed
 before running the main server or building Docker containers.
@@ -22,36 +22,36 @@ def test_import(module_name, description=""):
 
 def main():
     """Test all required dependencies"""
-    print("🧪 Testing SAGE MCP Server Dependencies")
+    print("🧪 Testing Sage MCP Server Dependencies")
     print("=" * 50)
-    
+
     dependencies = [
         # Core MCP dependencies
         ("mcp", "Model Context Protocol"),
         ("fastmcp", "FastMCP server framework"),
-        
+
         # Web framework dependencies
         ("fastapi", "FastAPI web framework"),
         ("uvicorn", "ASGI server"),
         ("starlette", "ASGI framework components"),
         ("starlette.responses", "Starlette response classes"),
         ("starlette.requests", "Starlette request classes"),
-        
+
         # HTTP client
         ("httpx", "Async HTTP client"),
         ("requests", "HTTP client"),
-        
-        # SAGE data client
-        ("sage_data_client", "SAGE data querying"),
-        
+
+        # Sage data client
+        ("sage_data_client", "Sage data querying"),
+
         # Data processing
         ("pandas", "Data manipulation"),
         ("numpy", "Numerical computing"),
-        
+
         # Configuration and serialization
         ("pydantic", "Data validation"),
         ("yaml", "YAML parsing"),
-        
+
         # Standard library (should always work)
         ("json", "JSON handling"),
         ("asyncio", "Async programming"),
@@ -63,19 +63,19 @@ def main():
         ("urllib.parse", "URL parsing"),
         ("contextvars", "Context variables"),
     ]
-    
+
     failed = []
     passed = []
-    
+
     for module, description in dependencies:
         if test_import(module, description):
             passed.append(module)
         else:
             failed.append(module)
-    
+
     print("\n" + "=" * 50)
     print(f"📊 Results: {len(passed)} passed, {len(failed)} failed")
-    
+
     if failed:
         print(f"\n❌ Failed imports: {', '.join(failed)}")
         print("\n🔧 To fix missing dependencies, run:")
@@ -87,8 +87,8 @@ def main():
         sys.exit(1)
     else:
         print("\n🎉 All dependencies are properly installed!")
-        print("✅ Ready to run SAGE MCP Server!")
-        
+        print("✅ Ready to run Sage MCP Server!")
+
         # Test specific imports that the main server uses
         print("\n🔍 Testing specific server imports...")
         try:
@@ -96,16 +96,16 @@ def main():
             from fastmcp.server.middleware import Middleware, MiddlewareContext
             from fastapi import HTTPException
             print("✅ FastMCP server components imported successfully")
-            
+
             # Test sage_mcp_server imports
             from sage_mcp_server import SageDataService, SageJobService
-            print("✅ SAGE MCP server components imported successfully")
-            
+            print("✅ Sage MCP server components imported successfully")
+
             print("\n🚀 All systems ready for deployment!")
-            
+
         except ImportError as e:
             print(f"❌ Server-specific import failed: {e}")
             sys.exit(1)
 
 if __name__ == "__main__":
-    main() 
+    main()
