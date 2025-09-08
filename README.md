@@ -1,6 +1,6 @@
 # Sage MCP Server
 
-A Model Context Protocol (MCP) server for interacting with the Sage (Software-Defined Sensor Network) platform. This server provides tools, resources, and prompts for querying sensor data, submitting jobs, and managing Sage nodes.
+A Model Context Protocol (MCP) server for interacting with the Sage Grande Testbed, cyberinfrastructure for AI@Edge. This server provides tools, resources, and prompts for querying sensor data, submitting jobs, and managing Sage nodes.
 
 ## Quick Setup with Cursor IDE
 
