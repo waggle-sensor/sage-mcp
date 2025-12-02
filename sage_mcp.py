@@ -38,6 +38,8 @@ from sage_mcp_server import (
     PluginRequirements, PluginGenerator,
     # Templates
     JobTemplates,
+    # Analytics
+    AnalyticsService, get_analytics_service,
 )
 
 SAGE_API_BASE = "https://auth.sagecontinuum.org/api/v-beta"
@@ -45,7 +47,8 @@ SAGE_MANIFESTS_URL = "https://auth.sagecontinuum.org/manifests/"
 SAGE_SENSORS_URL = "https://auth.sagecontinuum.org/sensors/"
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
 logger = logging.getLogger(__name__)
 
 # Authentication will be handled via headers and query parameters only
@@ -112,6 +115,7 @@ sage_config = SageConfig()
 # Initialize services with authentication support
 data_service = SageDataService()
 job_service = SageJobService(sage_config)
+analytics_service = get_analytics_service()
 
 # Authentication Middleware
 class AuthenticationMiddleware(Middleware):
@@ -159,12 +163,6 @@ class AuthenticationMiddleware(Middleware):
 
 
 
-
-
-
-
-
-
 def get_auth_from_context() -> Optional[str]:
     """
     Get authentication from the current request context.
@@ -176,10 +174,12 @@ def get_auth_from_context() -> Optional[str]:
     """
     return None
 
-
-
 # Initialize MCP Server
 mcp = FastMCP("SageDataMCP")
+
+# Analytics middleware disabled - was causing validation errors with MCP protocol
+# Analytics will be tracked via the REST API endpoints only
+logger.info("Analytics tracking available via REST API endpoints only")
 
 # Authentication middleware disabled - was causing 400 errors with MCP protocol
 # Authentication is handled directly in the proxy endpoint
@@ -196,18 +196,12 @@ def get_request_auth(request=None) -> Optional[str]:
         return extract_auth_from_request(request)
     return None
 
+
 # ----------------------------------------
-# AUTHENTICATION TOOLS
+# TOOL USAGE TRACKING (Disabled for MCP tools)
 # ----------------------------------------
-
-
-
-
-
-
-
-
-
+# Note: Tool usage tracking is disabled for MCP tools as middleware
+# interferes with MCP protocol. Analytics REST API endpoints still work.
 
 
 # ----------------------------------------
@@ -261,8 +255,14 @@ def temperature_stats() -> str:
 # ----------------------------------------
 
 @mcp.tool()
-def get_node_all_data(node_id: str, time_range: str = "-30m") -> str:
-    """Get all available sensor data for a specific node or all nodes if node_id is '*' or empty"""
+def get_node_all_data(node_id: str, time_range: str = "-5m", max_records: int = 500) -> str:
+    """Get all available sensor data for a specific node or all nodes if node_id is '*' or empty
+    
+    Args:
+        node_id: Node ID (e.g., 'W097') or '*' for all nodes
+        time_range: Time range (default: '-5m' for last 5 minutes, use '-1h', '-30m', etc. for more data)
+        max_records: Maximum number of records to process (default: 500, helps prevent timeouts)
+    """
     try:
         # Only normalize if node_id is not '*' or empty
         if node_id and node_id != '*':
@@ -271,29 +271,73 @@ def get_node_all_data(node_id: str, time_range: str = "-30m") -> str:
         else:
             node_str = '*'
         validated_time = TimeRange(value=time_range)
-        logger.info(f"Getting all data for node: {node_str}")
+        logger.info(f"Getting all data for node: {node_str} (time_range: {time_range}, max_records: {max_records})")
+        
         # Query for all data from this node or all nodes
-        df = data_service.query_node_data(node_str, validated_time)
+        df = data_service.query_node_data(node_str, validated_time, max_records=max_records)
+        
         if df.empty:
             return f"No data found for node {node_str} in the last {validated_time}"
-        # Group by measurement type and sensor
-        summary = df.groupby(["name", "meta.sensor"]).agg({
-            "value": ["count", "min", "max", "mean"]
-        }).round(2)
+        
+        # Track original size
+        original_size = len(df)
+        
+        # Limit records for processing to prevent timeouts
+        if len(df) > max_records:
+            logger.warning(f"Dataset has {len(df)} records, limiting to {max_records} most recent for processing")
+            df = df.sort_values('timestamp', ascending=False).head(max_records)
+        
         # Get time range
         time_start = safe_timestamp_format(df.timestamp.min())
         time_end = safe_timestamp_format(df.timestamp.max())
+        
         result = f"All sensor data for node {node_str} ({validated_time}):\n"
-        result += f"Total measurements: {len(df)}\n"
+        result += f"Total measurements available: {original_size:,}\n"
+        if original_size > max_records:
+            result += f"Showing summary of {max_records:,} most recent (use max_records parameter to adjust)\n"
         result += f"Time range: {time_start} to {time_end}\n\n"
-        # Add summary by measurement type
-        for (name, sensor), group in summary.iterrows():
-            result += f"{name} ({sensor}):\n"
-            result += f"  Count: {group[('value', 'count')]}\n"
-            result += f"  Range: {group[('value', 'min')]} to {group[('value', 'max')]}\n"
-            result += f"  Average: {group[('value', 'mean')]}\n\n"
+        
+        # Optimize grouping - use observed=True to avoid processing empty categories
+        # Only process numeric columns for stats
+        numeric_df = df[df['value'].apply(lambda x: isinstance(x, (int, float, np.number)))]
+        
+        if not numeric_df.empty:
+            summary = numeric_df.groupby(["name", "meta.sensor"], observed=True).agg({
+                "value": ["count", "min", "max", "mean"]
+            }).round(2)
+            
+            # Limit output to prevent huge responses
+            max_measurement_types = 50
+            measurement_count = 0
+            
+            # Add summary by measurement type
+            for (name, sensor), group in summary.iterrows():
+                measurement_count += 1
+                if measurement_count > max_measurement_types:
+                    remaining = len(summary) - max_measurement_types
+                    result += f"\n... and {remaining} more measurement types (increase max_records to see more)\n"
+                    break
+                    
+                result += f"{name} ({sensor}):\n"
+                result += f"  Count: {int(group[('value', 'count')]):,}\n"
+                result += f"  Range: {group[('value', 'min')]} to {group[('value', 'max')]}\n"
+                result += f"  Average: {group[('value', 'mean')]}\n\n"
+        
+        # Handle non-numeric data types
+        non_numeric_df = df[~df['value'].apply(lambda x: isinstance(x, (int, float, np.number)))]
+        if not non_numeric_df.empty:
+            non_numeric_types = non_numeric_df.groupby(["name", "meta.sensor"], observed=True).size()
+            result += "\nNon-numeric measurements:\n"
+            for (name, sensor), count in non_numeric_types.head(20).items():
+                result += f"{name} ({sensor}): {count:,} records\n"
+            if len(non_numeric_types) > 20:
+                result += f"... and {len(non_numeric_types) - 20} more types\n"
+        
+        result += f"\nTip: Use search_measurements() or query_job_data() for specific measurement types\n"
+        
         return result
     except Exception as e:
+        logger.error(f"Error getting all data for node {node_id}: {e}", exc_info=True)
         return f"Error getting all data for node {node_id}: {str(e)}"
 
 @mcp.tool()
@@ -423,26 +467,26 @@ def list_available_nodes(time_range: str = "-1h") -> str:
         result = f"Available Sage Nodes ({len(nodes)} total):\n\n"
 
         if deployed_nodes:
-            result += f"🟢 Deployed Nodes ({len(deployed_nodes)}):\n"
+            result += f"Deployed Nodes ({len(deployed_nodes)}):\n"
             result += "\n".join(deployed_nodes)
             result += "\n"
 
         if development_nodes:
-            result += f"🟡 Development Nodes ({len(development_nodes)}):\n"
+            result += f"Development Nodes ({len(development_nodes)}):\n"
             result += "\n".join(development_nodes)
             result += "\n"
 
         if production_nodes:
-            result += f"🟣 Production Nodes ({len(production_nodes)}):\n"
+            result += f"Production Nodes ({len(production_nodes)}):\n"
             result += "\n".join(production_nodes)
             result += "\n"
 
         if other_nodes:
-            result += f"⚪ Other Nodes ({len(other_nodes)}):\n"
+            result += f"Other Nodes ({len(other_nodes)}):\n"
             result += "\n".join(other_nodes)
 
-        result += "\n💡 For detailed node information, use get_node_info(node_id)"
-        result += "\n💡 For recent sensor activity, use get_environmental_summary()"
+        result += "\nTip: For detailed node information, use get_node_info(node_id)"
+        result += "\nTip: For recent sensor activity, use get_environmental_summary()"
 
         return result.strip()
 
@@ -847,7 +891,7 @@ def submit_sage_job(
         # If no plugin specified, treat job_name as a task description and provide recommendations
         if not plugin_image:
             recommendation_msg = find_plugins_for_task(job_name)
-            recommendation_msg += "\n\n💡 TIP: For easier job submission, try:\n"
+            recommendation_msg += "\n\nTIP: For easier job submission, try:\n"
             recommendation_msg += "• submit_plugin_job(plugin_type, job_name, nodes, plugin_args)\n"
             recommendation_msg += "• submit_multi_plugin_job(job_name, nodes, plugins_config)\n"
             recommendation_msg += "\nThese tools handle all the complex configuration automatically!"
@@ -1001,10 +1045,10 @@ def query_job_data(
                 df = data_service.query_data(start, end, filter_params)
 
             if df.empty:
-                return f"No data found for job '{job_name}' in the last {validated_time}. The job may still be starting up or not producing data yet.\n\n💡 Tip: Try using search_measurements() to see what plugins are actually running on this node."
+                return f"No data found for job '{job_name}' in the last {validated_time}. The job may still be starting up or not producing data yet.\n\nTip: Try using search_measurements() to see what plugins are actually running on this node."
 
         # Format results
-        result = f"📊 Job Data Summary for '{job_name}' (last {validated_time}):\n\n"
+        result = f"Job Data Summary for '{job_name}' (last {validated_time}):\n\n"
 
         # Basic stats
         total_records = len(df)
@@ -1102,7 +1146,7 @@ def submit_plugin_job(
             job = JobTemplates.camera_sampler(job_name=job_name, nodes=node_list, camera_position="top")
         else:
             available_types = "air_quality, audio_sampler, camera_sampler, camera_sampler_top"
-            return f"❌ Unknown plugin type '{plugin_type}'. Available types: {available_types}"
+            return f"Error: Unknown plugin type '{plugin_type}'. Available types: {available_types}"
 
         # Submit job
         success, message = job_service.submit_job(job)
@@ -1110,7 +1154,7 @@ def submit_plugin_job(
 
     except Exception as e:
         logger.error(f"Error submitting {plugin_type} job: {e}")
-        return f"❌ Error submitting {plugin_type} job: {str(e)}"
+        return f"Error submitting {plugin_type} job: {str(e)}"
 
 # ----------------------------------------
 # GEOGRAPHICAL QUERY TOOLS
@@ -1356,7 +1400,7 @@ def get_measurement_stat_by_location(
             stat_node = reading['node_id']
             stat_time = safe_timestamp_format(reading['timestamp'])
             stat_str = f"Minimum {measurement_type} in {location} (last {validated_time}, filter: '{filter_expr}'):\n\n"
-            stat_str += f"❄️ {stat_val:.2f}{' ' + unit if unit else ''} measured at node {stat_node}\n  Time: {stat_time}\n  Data from {len(filtered_data)} filtered readings\n"
+            stat_str += f"Min: {stat_val:.2f}{' ' + unit if unit else ''} measured at node {stat_node}\n  Time: {stat_time}\n  Data from {len(filtered_data)} filtered readings\n"
             if desc:
                 stat_str += f"Description: {desc}\n"
         elif stat == "max":
@@ -1366,13 +1410,13 @@ def get_measurement_stat_by_location(
             stat_node = reading['node_id']
             stat_time = safe_timestamp_format(reading['timestamp'])
             stat_str = f"Maximum {measurement_type} in {location} (last {validated_time}, filter: '{filter_expr}'):\n\n"
-            stat_str += f"🔥 {stat_val:.2f}{' ' + unit if unit else ''} measured at node {stat_node}\n  Time: {stat_time}\n  Data from {len(filtered_data)} filtered readings\n"
+            stat_str += f"Max: {stat_val:.2f}{' ' + unit if unit else ''} measured at node {stat_node}\n  Time: {stat_time}\n  Data from {len(filtered_data)} filtered readings\n"
             if desc:
                 stat_str += f"Description: {desc}\n"
         elif stat == "avg":
             stat_val = filtered_data['value'].mean()
             stat_str = f"Average {measurement_type} in {location} (last {validated_time}, filter: '{filter_expr}'):\n\n"
-            stat_str += f"📊 {stat_val:.2f}{' ' + unit if unit else ''} (from {len(filtered_data)} filtered readings)\n"
+            stat_str += f"Avg: {stat_val:.2f}{' ' + unit if unit else ''} (from {len(filtered_data)} filtered readings)\n"
             if desc:
                 stat_str += f"Description: {desc}\n"
         else:
@@ -1725,18 +1769,18 @@ def submit_multi_plugin_job(
         # Parse node list
         node_list = [node.strip() for node in nodes.split(',') if node.strip()]
         if not node_list:
-            return "❌ No valid nodes specified"
+            return "Error: No valid nodes specified"
 
         # Initialize plugin list and science rules
         plugins = []
         science_rules = []
 
         # This is a simplified version - in practice you'd need to implement the full plugin configuration logic
-        return "❌ Multi-plugin job submission not yet fully implemented. Use submit_plugin_job() for individual plugins."
+        return "Error: Multi-plugin job submission not yet fully implemented. Use submit_plugin_job() for individual plugins."
 
     except Exception as e:
         logger.error(f"Error submitting multi-plugin job: {e}")
-        return f"❌ Error submitting multi-plugin job: {str(e)}"
+        return f"Error submitting multi-plugin job: {str(e)}"
 
 # ----------------------------------------
 # 6. DOCUMENTATION TOOLS
@@ -1830,7 +1874,7 @@ def create_plugin(
         plugin_path = generator.generate_plugin(template)
 
         # Return success message with deployment instructions
-        return f"""✅ Plugin '{name}' created successfully at {plugin_path}
+        return f"""Plugin '{name}' created successfully at {plugin_path}
 
 IMPORTANT DEPLOYMENT INFORMATION:
 -------------------------------
@@ -1859,10 +1903,240 @@ The sudo commands will work without a password on Sage nodes."""
 
     except Exception as e:
         logger.error(f"Error creating plugin: {e}")
-        return f"❌ Error creating plugin: {str(e)}"
+        return f"Error creating plugin: {str(e)}"
 
 # ----------------------------------------
-# 6. IMAGE PROXY ENDPOINTS
+# 6. ANALYTICS REST API ENDPOINTS (Admin Only)
+# ----------------------------------------
+
+def verify_admin_api_key(request) -> bool:
+    """
+    Verify admin API key from request.
+    
+    Checks for API key in:
+    1. X-Admin-API-Key header
+    2. Authorization: Bearer <api_key>
+    3. api_key query parameter
+    
+    Returns:
+        bool: True if valid admin API key, False otherwise
+    """
+    # Get admin API key from environment
+    admin_api_key = os.getenv("ADMIN_API_KEY")
+    
+    if not admin_api_key:
+        logger.warning("ADMIN_API_KEY not set - analytics endpoints will reject all requests")
+        return False
+    
+    logger.debug(f"Expected API key (first 10 chars): {admin_api_key[:10]}...")
+    
+    # Check X-Admin-API-Key header
+    provided_key = request.headers.get("X-Admin-API-Key")
+    if provided_key:
+        logger.debug(f"Checking X-Admin-API-Key header (first 10 chars): {provided_key[:10]}...")
+        if provided_key == admin_api_key:
+            logger.info("Valid API key via X-Admin-API-Key header")
+            return True
+    
+    # Check Authorization Bearer header
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        provided_key = auth_header[7:]
+        logger.debug(f"Checking Bearer token (first 10 chars): {provided_key[:10]}...")
+        if provided_key == admin_api_key:
+            logger.info("Valid API key via Authorization Bearer")
+            return True
+    
+    # Check query parameter
+    provided_key = request.query_params.get("api_key")
+    if provided_key:
+        logger.debug(f"Checking query param (first 10 chars): {provided_key[:10]}...")
+        if provided_key == admin_api_key:
+            logger.info("Valid API key via query parameter")
+            return True
+    
+    logger.warning("API key verification failed - no valid key found")
+    return False
+
+
+@mcp.custom_route("/analytics/summary", methods=["GET"])
+async def analytics_summary(request):
+    """
+    Get overall analytics summary.
+    
+    Requires admin API key via:
+    - Header: X-Admin-API-Key: <key>
+    - Header: Authorization: Bearer <key>
+    - Query param: ?api_key=<key>
+    
+    Returns JSON with:
+    - total_unique_users
+    - total_requests
+    - total_tool_uses
+    - most_active_user
+    - most_used_tool
+    """
+    # Track the request
+    try:
+        analytics_service.track_request(request, endpoint="/analytics/summary", method="GET")
+    except Exception as e:
+        logger.debug(f"Failed to track request: {e}")
+    
+    if not verify_admin_api_key(request):
+        raise HTTPException(status_code=401, detail="Invalid or missing admin API key")
+    
+    try:
+        summary = analytics_service.get_analytics_summary()
+        return Response(
+            content=json.dumps(summary, indent=2),
+            media_type="application/json"
+        )
+    except Exception as e:
+        logger.error(f"Error getting analytics summary: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@mcp.custom_route("/analytics/users", methods=["GET"])
+async def analytics_users(request):
+    """
+    Get detailed statistics for all users.
+    
+    Requires admin API key.
+    
+    Returns JSON array of users with:
+    - user_id
+    - first_seen
+    - last_seen
+    - total_requests
+    """
+    if not verify_admin_api_key(request):
+        raise HTTPException(status_code=401, detail="Invalid or missing admin API key")
+    
+    try:
+        users = analytics_service.get_user_stats()
+        return Response(
+            content=json.dumps(users, indent=2),
+            media_type="application/json"
+        )
+    except Exception as e:
+        logger.error(f"Error getting user statistics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@mcp.custom_route("/analytics/tools", methods=["GET"])
+async def analytics_tools(request):
+    """
+    Get usage statistics for all MCP tools.
+    
+    Requires admin API key.
+    
+    Returns JSON array of tools with:
+    - tool_name
+    - total_uses
+    - successful_uses
+    - unique_users
+    - first_used
+    - last_used
+    """
+    if not verify_admin_api_key(request):
+        raise HTTPException(status_code=401, detail="Invalid or missing admin API key")
+    
+    try:
+        tools = analytics_service.get_tool_stats()
+        return Response(
+            content=json.dumps(tools, indent=2),
+            media_type="application/json"
+        )
+    except Exception as e:
+        logger.error(f"Error getting tool statistics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@mcp.custom_route("/analytics/user/{user_id}", methods=["GET"])
+async def analytics_user_activity(request):
+    """
+    Get activity details for a specific user.
+    
+    Requires admin API key.
+    
+    Returns JSON with:
+    - user_info (first_seen, last_seen, total_requests)
+    - tool_usage (array of tools with usage counts)
+    """
+    if not verify_admin_api_key(request):
+        raise HTTPException(status_code=401, detail="Invalid or missing admin API key")
+    
+    try:
+        user_id = request.path_params.get("user_id")
+        if not user_id:
+            raise HTTPException(status_code=400, detail="user_id is required")
+        
+        # Get user info
+        users = analytics_service.get_user_stats()
+        user_info = next((u for u in users if u['user_id'] == user_id), None)
+        
+        if not user_info:
+            raise HTTPException(status_code=404, detail=f"User '{user_id}' not found")
+        
+        # Get user's tool usage
+        tool_usage = analytics_service.get_user_tool_usage(user_id)
+        
+        result = {
+            "user_info": user_info,
+            "tool_usage": tool_usage
+        }
+        
+        return Response(
+            content=json.dumps(result, indent=2),
+            media_type="application/json"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting user activity: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@mcp.custom_route("/analytics/activity", methods=["GET"])
+async def analytics_recent_activity(request):
+    """
+    Get recent activity across all users and tools.
+    
+    Requires admin API key.
+    
+    Query params:
+    - limit: Maximum number of activities to return (default: 50, max: 1000)
+    
+    Returns JSON array of activities with:
+    - user_id
+    - tool_name
+    - timestamp
+    - success
+    - error_message (if failed)
+    """
+    if not verify_admin_api_key(request):
+        raise HTTPException(status_code=401, detail="Invalid or missing admin API key")
+    
+    try:
+        # Get limit from query params
+        limit = int(request.query_params.get("limit", "50"))
+        if limit > 1000:
+            limit = 1000
+        
+        activities = analytics_service.get_recent_activity(limit=limit)
+        return Response(
+            content=json.dumps(activities, indent=2),
+            media_type="application/json"
+        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid limit parameter")
+    except Exception as e:
+        logger.error(f"Error getting recent activity: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ----------------------------------------
+# 7. IMAGE PROXY ENDPOINTS
 # ----------------------------------------
 
 @mcp.custom_route("/proxy/image", methods=["GET"])
@@ -2040,11 +2314,11 @@ def get_image_proxy_url(sage_url: str, auth_token: str = "") -> str:
         proxy_url = f"https://mcp.sagecontinuum.org/proxy/image?url={encoded_url}&token={encoded_token}"
 
         response_parts = [
-            f"🖼️ **Sage Image Proxy URL Generated**",
+            f"**Sage Image Proxy URL Generated**",
             f"",
             f"**Authenticated Proxy URL:** {proxy_url}",
             f"",
-            f"📋 **How to Use This URL:**",
+            f"**How to Use This URL:**",
             f"",
             f"**Method 1: Direct Access (Recommended)**",
             f"- Simply paste the URL above into your browser or use with curl",
@@ -2063,14 +2337,14 @@ def get_image_proxy_url(sage_url: str, auth_token: str = "") -> str:
             f"curl -L -u \"plebbyd:4d9473cb2a21cb7716e97e5fdafdbcbf4faea051\" \"{sage_url}\" -o image.jpg",
             f"```",
             f"",
-            f"🔐 **Authentication Notes:**"
+            f"**Authentication Notes:**"
         ]
 
         response_parts.extend([
-            f"- ✅ Authentication is included in the proxy URL automatically",
-            f"- 🔒 Your Sage credentials are securely handled by the proxy server",
-            f"- 📱 The proxy URL works in browsers, curl, wget, or any HTTP client",
-            f"- 🚀 No need to handle authentication headers manually"
+            f"- Authentication is included in the proxy URL automatically",
+            f"- Your Sage credentials are securely handled by the proxy server",
+            f"- The proxy URL works in browsers, curl, wget, or any HTTP client",
+            f"- No need to handle authentication headers manually"
         ])
 
         return "\n".join(response_parts)
@@ -2167,21 +2441,21 @@ async def print_registered() -> None:
         prompts = await mcp.list_prompts()
 
         print("\n" + "="*50)
-        print("🚀 SageDataMCP Server Starting...")
+        print("SageDataMCP Server Starting...")
         print("="*50)
-        print(f"✅ Registered tools ({len(tools)}):")
+        print(f"Registered tools ({len(tools)}):")
         for tool in tools:
             print(f"   - {tool.name}: {tool.description}")
 
-        print(f"\n✅ Registered resources ({len(resources)}):")
+        print(f"\nRegistered resources ({len(resources)}):")
         for resource in resources:
             print(f"   - {resource.name}: {resource.description}")
 
-        print(f"\n✅ Registered prompts ({len(prompts)}):")
+        print(f"\nRegistered prompts ({len(prompts)}):")
         for prompt in prompts:
             print(f"   - {prompt.name}: {prompt.description}")
 
-        print(f"\n🌐 Server will be available at: https://mcp.sagecontinuum.org/mcp")
+        print(f"\nServer will be available at: https://mcp.sagecontinuum.org/mcp")
         print("="*50 + "\n")
 
     except Exception as e:
@@ -2193,10 +2467,10 @@ def test_sage_connection() -> bool:
     try:
         logger.info("Testing sage_data_client connection...")
         test_df = sage_data_client.query(start="-5m", filter={"name": "env.temperature"})
-        logger.info(f"✅ sage_data_client working - found {len(test_df)} recent temperature records")
+        logger.info(f"sage_data_client working - found {len(test_df)} recent temperature records")
         return True
     except Exception as e:
-        logger.warning(f"⚠️ sage_data_client test failed: {e}")
+        logger.warning(f"WARNING: sage_data_client test failed: {e}")
         logger.warning("Server will start but temperature queries may fail")
         return False
 
@@ -2221,7 +2495,7 @@ def main() -> None:
         logger.info(f"Server will be accessible at: http://{host}:{port}/mcp")
 
         if host == "0.0.0.0":
-            logger.warning("⚠️  Server is exposed to all network interfaces!")
+            logger.warning("WARNING: Server is exposed to all network interfaces!")
             logger.warning("   Make sure this is intended and secure for your environment.")
             logger.warning("   Set MCP_HOST=127.0.0.1 to restrict to localhost only.")
 
@@ -2233,7 +2507,7 @@ def main() -> None:
             log_level="info"
         )
     except KeyboardInterrupt:
-        print("\n🛑 Server stopped by user")
+        print("\nServer stopped by user")
     except Exception as e:
         logger.error(f"Server error: {e}")
         sys.exit(1)
