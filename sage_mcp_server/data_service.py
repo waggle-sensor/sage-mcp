@@ -16,7 +16,8 @@ class SageDataService:
         start: str,
         end: Optional[str] = None,
         filter_params: Optional[Dict[str, Any]] = None,
-        user_token: Optional[str] = None
+        user_token: Optional[str] = None,
+        max_records: int = 1000
     ) -> pd.DataFrame:
         try:
             if filter_params is None:
@@ -47,15 +48,19 @@ class SageDataService:
                 logger.info(f"Querying Sage data without authentication (public data only)")
 
             # Add timeout warning for large queries
-            logger.info(f"Executing Sage query with parameters: {query_args}")
+            logger.info(f"Executing Sage query with parameters: {query_args} (max_records: {max_records})")
 
             df = sage_data_client.query(**query_args)
-            logger.info(f"Query returned {len(df)} records")
+            original_count = len(df)
+            logger.info(f"Query returned {original_count:,} records")
 
-            # Limit result size to prevent overwhelming responses
-            if len(df) > 1000:
-                logger.warning(f"Large result set ({len(df)} records) - limiting to 1000 most recent")
-                df = df.sort_values('timestamp', ascending=False).head(1000)
+            # Limit result size to prevent overwhelming responses and timeouts
+            if len(df) > max_records:
+                logger.warning(f"Large result set ({original_count:,} records) - limiting to {max_records:,} most recent")
+                # Sort by timestamp descending and keep most recent
+                df = df.sort_values('timestamp', ascending=False).head(max_records)
+                # Reset index after slicing to avoid issues downstream
+                df = df.reset_index(drop=True)
 
             return df
         except Exception as e:
@@ -65,7 +70,7 @@ class SageDataService:
             # Handle different types of errors with specific guidance
             if "timeout" in error_str.lower() or "504" in error_str:
                 logger.error("Query timed out - try reducing the time range or being more specific with filters")
-                logger.error("Suggestions: Use shorter time periods (e.g., -15m instead of -1h) or filter by specific nodes")
+                logger.error("Suggestions: Use shorter time periods (e.g., -5m instead of -30m) or filter by specific nodes")
             elif user_token and ("401" in error_str or "Unauthorized" in error_str or "auth" in error_str.lower()):
                 logger.error("Authentication failed. Please check your token and permissions.")
                 logger.error("For protected data access, you need:")
@@ -134,13 +139,14 @@ class SageDataService:
         node_id: Union[str, NodeID],
         time_range: Union[str, TimeRange] = "-15m",  # Reduced default
         measurement_type: Optional[str] = None,
-        user_token: Optional[str] = None
+        user_token: Optional[str] = None,
+        max_records: int = 1000
     ) -> pd.DataFrame:
         start, end = parse_time_range(time_range)
         filter_params = {"vsn": str(node_id)}
         if measurement_type:
             filter_params["name"] = measurement_type
-        return SageDataService.query_data(start, end, filter_params, user_token=user_token)
+        return SageDataService.query_data(start, end, filter_params, user_token=user_token, max_records=max_records)
 
     @staticmethod
     def query_environmental_data(
